@@ -2,16 +2,18 @@
 // Do not remove this comment text when giving me the new code.
 
 import 'dart:typed_data';
+
+import 'package:daily_task/app/shared_components/task_progress.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:daily_task/app/shared_components/task_progress.dart';
 
 class DashboardController extends GetxController {
   final scafoldKey = GlobalKey<ScaffoldState>();
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: '545461705793-3v0101rqbcp0hqkeiqt0ohca9me9d0b3.apps.googleusercontent.com',
+    clientId:
+        '545461705793-3v0101rqbcp0hqkeiqt0ohca9me9d0b3.apps.googleusercontent.com',
   );
 
   final Rx<UserProfileData?> userProfile = Rx<UserProfileData?>(null);
@@ -20,7 +22,9 @@ class DashboardController extends GetxController {
   RxBool isDarkMode = false.obs;
   RxBool isPrintMode = false.obs;
   RxList<StickerConfig> stickers = <StickerConfig>[].obs;
-  RxInt currentStickerIndex = (-1).obs;
+
+  RxString widthErrorText = ''.obs;
+  RxString heightErrorText = ''.obs;
 
   DashboardController() {
     _initializeGoogleSignIn();
@@ -76,14 +80,12 @@ class DashboardController extends GetxController {
     debugPrint("Print mode toggled: ${isPrintMode.value}");
     if (isPrintMode.value) {
       stickers.clear();
-      currentStickerIndex.value = -1;
       debugPrint("Stickers list cleared.");
     }
   }
 
   void addStickerConfig(StickerConfig stickerConfig) {
     stickers.add(stickerConfig);
-    currentStickerIndex.value = stickers.length - 1;
     debugPrint("Sticker added: ${stickerConfig.toString()}");
   }
 
@@ -91,9 +93,6 @@ class DashboardController extends GetxController {
     if (index >= 0 && index < stickers.length) {
       stickers.removeAt(index);
       debugPrint("Sticker at index $index removed.");
-      if (currentStickerIndex.value >= stickers.length) {
-        currentStickerIndex.value = stickers.length - 1;
-      }
     } else {
       debugPrint("Invalid index for sticker removal: $index");
     }
@@ -101,10 +100,19 @@ class DashboardController extends GetxController {
 
   void confirmStickerSettings(int index) {
     if (index >= 0 && index < stickers.length) {
-      stickers[index].confirmed = true;
+      stickers[index].confirmed.value = true;
       debugPrint("Sticker settings confirmed for index $index");
     } else {
       debugPrint("Invalid index for confirming sticker settings: $index");
+    }
+  }
+
+  void editStickerSettings(int index) {
+    if (index >= 0 && index < stickers.length) {
+      stickers[index].confirmed.value = false;
+      debugPrint("Sticker settings set to editable for index $index");
+    } else {
+      debugPrint("Invalid index for editing sticker settings: $index");
     }
   }
 
@@ -113,6 +121,7 @@ class DashboardController extends GetxController {
     for (var sticker in stickers) {
       debugPrint("Sticker Config: ${sticker.toString()}");
     }
+    // Proceed with order processing logic here
   }
 
   Future<void> uploadImages() async {
@@ -142,25 +151,55 @@ class DashboardController extends GetxController {
 
   void setSelectedFormatForSticker(int index, String format) {
     if (index >= 0 && index < stickers.length) {
-      stickers[index].size = format;
+      final sticker = stickers[index];
+      sticker.size.value = format;
+      final dimensions = format.replaceAll('cm', '').split('x');
+      double width = double.parse(dimensions[0]);
+      double height = double.parse(dimensions[1]);
+      sticker.customWidth.value = width;
+      sticker.customHeight.value = height;
+      widthErrorText.value = '';
+      heightErrorText.value = '';
       debugPrint("Sticker at index $index size set to: $format");
     }
   }
 
   void setCustomDimensionsForSticker(int index, double width, double height) {
     if (index >= 0 && index < stickers.length) {
-      stickers[index].customWidth = width;
-      stickers[index].customHeight = height;
-      stickers[index].size =
+      final sticker = stickers[index];
+
+      // Apply constraints
+      width = width.clamp(0, 40);
+      height = height.clamp(0, 40);
+
+      if (width > 28 && height > 28) {
+        if (width > height) {
+          width = 28;
+          widthErrorText.value =
+              'Max combined size exceeded. Width set to 28cm.';
+        } else {
+          height = 28;
+          heightErrorText.value =
+              'Max combined size exceeded. Height set to 28cm.';
+        }
+      } else {
+        widthErrorText.value = '';
+        heightErrorText.value = '';
+      }
+
+      sticker.customWidth.value = width;
+      sticker.customHeight.value = height;
+      sticker.size.value =
           '${width.toStringAsFixed(1)}x${height.toStringAsFixed(1)}cm';
       debugPrint(
-          "Sticker at index $index custom dimensions set to: ${stickers[index].size}");
+          "Sticker at index $index custom dimensions set to: ${sticker.size.value}");
     }
   }
 
   void setQuantityForSticker(int index, int quantity) {
     if (index >= 0 && index < stickers.length) {
-      stickers[index].quantity = quantity;
+      final sticker = stickers[index];
+      sticker.quantity.value = quantity;
       debugPrint("Sticker at index $index quantity set to: $quantity");
     }
   }
@@ -171,33 +210,40 @@ class DashboardController extends GetxController {
   void onPressedAssignTask(int index, ListTaskAssignedData data) {}
   void onPressedMemberTask(int index, ListTaskAssignedData data) {}
   void onPressedCalendar() {}
-  void onPressedTaskGroup(int index, ListTaskDateData data) {}
 
   void openDrawer() {
     scafoldKey.currentState?.openDrawer();
   }
 }
 
-class StickerConfig {
-  Uint8List imageData;
-  String size;
-  int quantity;
-  bool confirmed;
-  double customWidth;
-  double customHeight;
+class StickerConfig extends GetxController {
+  Rx<Uint8List> imageData;
+  RxString size;
+  RxInt quantity;
+  RxBool confirmed;
+  RxDouble customWidth;
+  RxDouble customHeight;
+  RxBool isExpanded;
 
   StickerConfig({
-    required this.imageData,
-    this.size = '10x10cm',
-    this.quantity = 1,
-    this.confirmed = false,
-    this.customWidth = 10.0,
-    this.customHeight = 10.0,
-  });
+    required Uint8List imageData,
+    String size = '10x10cm',
+    int quantity = 1,
+    bool confirmed = false,
+    double customWidth = 10.0,
+    double customHeight = 10.0,
+    bool isExpanded = true,
+  })  : imageData = imageData.obs,
+        size = size.obs,
+        quantity = quantity.obs,
+        confirmed = confirmed.obs,
+        customWidth = customWidth.obs,
+        customHeight = customHeight.obs,
+        isExpanded = isExpanded.obs;
 
   @override
   String toString() {
-    return 'StickerConfig(size: $size, quantity: $quantity, confirmed: $confirmed)';
+    return 'StickerConfig(size: ${size.value}, quantity: ${quantity.value}, confirmed: ${confirmed.value})';
   }
 }
 
@@ -214,5 +260,7 @@ class UserProfileData {
 }
 
 class SelectionButtonData {}
+
 class ListTaskAssignedData {}
+
 class ListTaskDateData {}

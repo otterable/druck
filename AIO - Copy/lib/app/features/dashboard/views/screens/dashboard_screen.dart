@@ -1,33 +1,16 @@
 // My lib/app/features/dashboard/views/screens/dashboard_screen.dart
 // If this file is part of the problem, provide me a full update to the code, without omitting a single part. Include these note lines in the code as well, please. Otherwise do not update.
 
-import 'dart:typed_data';
-
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:daily_task/app/constans/app_constants.dart';
-import 'package:daily_task/app/shared_components/card_task.dart';
 import 'package:daily_task/app/shared_components/header_text.dart';
-import 'package:daily_task/app/shared_components/list_task_assigned.dart';
-import 'package:daily_task/app/shared_components/list_task_date.dart';
 import 'package:daily_task/app/shared_components/responsive_builder.dart';
 import 'package:daily_task/app/shared_components/task_progress.dart';
-import 'package:daily_task/app/shared_components/user_profile.dart';
-import 'package:daily_task/app/utils/helpers/app_helpers.dart';
 import 'package:eva_icons_flutter/eva_icons_flutter.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 import '../../controllers/dashboard_controller.dart';
-
-// Import your component files
-import '../components/header_order_history.dart';
-import '../components/main_menu.dart';
-import '../components/task_in_progress.dart';
-import '../components/weekly_task.dart';
-import '../components/task_group.dart';
 
 class DashboardScreen extends GetView<DashboardController> {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -148,7 +131,6 @@ class DashboardScreen extends GetView<DashboardController> {
     });
   }
 
-  // Sidebar with updated UI elements
   Widget _buildSidebar(BuildContext context, bool isDarkMode) {
     final DateTime now = DateTime.now();
     final bool isWeekend =
@@ -218,8 +200,7 @@ class DashboardScreen extends GetView<DashboardController> {
                             Text(
                               user.displayName ?? "User",
                               style: TextStyle(
-                                color:
-                                    isDarkMode ? Colors.white : Colors.black,
+                                color: isDarkMode ? Colors.white : Colors.black,
                                 fontSize: 18,
                               ),
                             ),
@@ -262,8 +243,7 @@ class DashboardScreen extends GetView<DashboardController> {
 
         // Section with Icons and Descriptions
         Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -307,12 +287,9 @@ class DashboardScreen extends GetView<DashboardController> {
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 40),
                   padding: const EdgeInsets.all(10),
-                  backgroundColor:
-                      isDarkMode ? Colors.white : Colors.black,
-                  foregroundColor:
-                      isDarkMode ? Colors.black : Colors.white,
-                  textStyle:
-                      const TextStyle(fontWeight: FontWeight.bold),
+                  backgroundColor: isDarkMode ? Colors.white : Colors.black,
+                  foregroundColor: isDarkMode ? Colors.black : Colors.white,
+                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(height: 10),
@@ -323,12 +300,9 @@ class DashboardScreen extends GetView<DashboardController> {
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 40),
                   padding: const EdgeInsets.all(10),
-                  backgroundColor:
-                      isDarkMode ? Colors.white : Colors.black,
-                  foregroundColor:
-                      isDarkMode ? Colors.black : Colors.white,
-                  textStyle:
-                      const TextStyle(fontWeight: FontWeight.bold),
+                  backgroundColor: isDarkMode ? Colors.white : Colors.black,
+                  foregroundColor: isDarkMode ? Colors.black : Colors.white,
+                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -374,7 +348,6 @@ class DashboardScreen extends GetView<DashboardController> {
     );
   }
 
-  // Feature item helper for sidebar
   Widget _buildFeatureItem({
     required IconData icon,
     required String title,
@@ -384,8 +357,7 @@ class DashboardScreen extends GetView<DashboardController> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon,
-            color: isDarkMode ? Colors.white : Colors.black, size: 28),
+        Icon(icon, color: isDarkMode ? Colors.white : Colors.black, size: 28),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -427,11 +399,9 @@ class DashboardScreen extends GetView<DashboardController> {
     );
   }
 
-  // Print Section
   Widget _buildPrintSection() {
     return Padding(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       child: Obx(() {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -460,14 +430,19 @@ class DashboardScreen extends GetView<DashboardController> {
                     },
                   ),
                   const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: controller.proceedWithOrder,
-                    child: const Text("Proceed with Order"),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.all(16),
-                      textStyle: const TextStyle(fontSize: 18),
-                    ),
-                  ),
+                  Obx(() {
+                    final allConfirmed = controller.stickers
+                        .every((sticker) => sticker.confirmed.value);
+                    return ElevatedButton(
+                      onPressed:
+                          allConfirmed ? controller.proceedWithOrder : null,
+                      child: const Text("Proceed with Order"),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.all(16),
+                        textStyle: const TextStyle(fontSize: 18),
+                      ),
+                    );
+                  }),
                 ],
               ),
           ],
@@ -476,96 +451,150 @@ class DashboardScreen extends GetView<DashboardController> {
     );
   }
 
-  // Sticker Configuration Card
   Widget _buildStickerConfigCard(int index) {
     final sticker = controller.stickers[index];
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 10),
-      child: Obx(() {
-        return ExpansionTile(
-          leading: Image.memory(
-            sticker.imageData,
-            width: 50,
-            height: 50,
-            fit: BoxFit.cover,
-          ),
-          title: Text("Sticker ${index + 1}"),
-          subtitle: Text("Quantity: ${sticker.quantity}"),
-          initiallyExpanded: controller.currentStickerIndex.value == index,
-          onExpansionChanged: (expanded) {
-            if (expanded) {
-              controller.currentStickerIndex.value = index;
-            } else {
-              controller.currentStickerIndex.value = -1;
-            }
-          },
+    final isDarkMode = controller.isDarkMode.value;
+    return Obx(() {
+      return Card(
+        margin: const EdgeInsets.symmetric(vertical: 10),
+        child: Column(
           children: [
-            _buildSizeSelection(sticker, index),
-            _buildQuantitySelection(sticker, index),
-            OverflowBar(
-              alignment: MainAxisAlignment.spaceBetween,
+            // Full-size image preview
+            Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxHeight: 500),
+              child: Image.memory(
+                sticker.imageData.value,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ExpansionTile(
+              key: PageStorageKey('sticker_tile_$index'),
+              title: Text("Sticker ${index + 1}"),
+              subtitle: Text("Quantity: ${sticker.quantity.value}"),
+              initiallyExpanded: sticker.isExpanded.value,
+              onExpansionChanged: (expanded) {
+                sticker.isExpanded.value = expanded;
+              },
               children: [
-                TextButton(
-                  onPressed: () => controller.removeStickerConfig(index),
-                  child: const Text("Delete"),
-                ),
-                TextButton(
-                  onPressed: () => controller.confirmStickerSettings(index),
-                  child: const Text("Confirm"),
+                const SizedBox(height: 10),
+                _buildSizeSelection(sticker, index),
+                const SizedBox(height: 10),
+                _buildCustomSizeFields(sticker, index),
+                const SizedBox(height: 10),
+                _buildQuantitySelection(sticker, index),
+                const SizedBox(height: 10),
+                OverflowBar(
+                  alignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(
+                      onPressed: () => controller.removeStickerConfig(index),
+                      child: const Text("Delete"),
+                    ),
+                    sticker.confirmed.value
+                        ? TextButton(
+                            onPressed: () =>
+                                controller.editStickerSettings(index),
+                            child: const Text("Edit"),
+                          )
+                        : TextButton(
+                            onPressed: () =>
+                                controller.confirmStickerSettings(index),
+                            child: const Text("Confirm"),
+                          ),
+                  ],
                 ),
               ],
             ),
           ],
-        );
-      }),
-    );
+        ),
+      );
+    });
   }
 
-  // Size Selection Widget
   Widget _buildSizeSelection(StickerConfig sticker, int index) {
+    final isDarkMode = controller.isDarkMode.value;
+    final selectedColor = isDarkMode ? Colors.white : Colors.black;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Select Size:",
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 10,
-          children: List.generate(
-            9,
-            (i) {
-              final size = '${i + 2}x${i + 2}cm';
-              return ChoiceChip(
-                label: Text(size),
-                selected: sticker.size == size,
-                onSelected: (selected) {
-                  if (selected) {
-                    controller.setSelectedFormatForSticker(
-                        index, size);
-                  }
-                },
-              );
-            },
-          ),
+        const Text(
+          "Select Printing Format:",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 10),
-        const Text("Or select custom size:"),
+        Obx(() {
+          return Wrap(
+            spacing: 10,
+            children: List.generate(
+              9,
+              (i) {
+                final size = '${i + 2}x${i + 2}cm';
+                return ChoiceChip(
+                  label: Text(size),
+                  selected: sticker.size.value == size,
+                  onSelected: sticker.confirmed.value
+                      ? null
+                      : (selected) {
+                          if (selected) {
+                            controller.setSelectedFormatForSticker(index, size);
+                          }
+                        },
+                  selectedColor: selectedColor,
+                  backgroundColor:
+                      isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,
+                  labelStyle: TextStyle(
+                    color: sticker.size.value == size
+                        ? (isDarkMode ? Colors.black : Colors.white)
+                        : null,
+                  ),
+                );
+              },
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildCustomSizeFields(StickerConfig sticker, int index) {
+    final isDarkMode = controller.isDarkMode.value;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Or select custom size:",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
               child: Column(
                 children: [
                   const Text("Width (X) in cm"),
-                  Slider(
-                    min: 1,
-                    max: 27,
-                    value: sticker.customWidth,
-                    onChanged: (value) {
-                      controller.setCustomDimensionsForSticker(
-                          index, value, sticker.customHeight);
-                    },
-                  ),
-                  Text("${sticker.customWidth.toStringAsFixed(1)} cm"),
+                  Obx(() {
+                    return TextField(
+                      enabled: !sticker.confirmed.value,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (value) {
+                        double width =
+                            double.tryParse(value.replaceAll(',', '.')) ??
+                                sticker.customWidth.value;
+                        controller.setCustomDimensionsForSticker(
+                            index, width, sticker.customHeight.value);
+                      },
+                      decoration: InputDecoration(
+                        hintText: "Width",
+                        errorText: controller.widthErrorText.value,
+                      ),
+                      controller: TextEditingController(
+                          text: sticker.customWidth.value.toString()),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -574,16 +603,26 @@ class DashboardScreen extends GetView<DashboardController> {
               child: Column(
                 children: [
                   const Text("Height (Y) in cm"),
-                  Slider(
-                    min: 1,
-                    max: 27,
-                    value: sticker.customHeight,
-                    onChanged: (value) {
-                      controller.setCustomDimensionsForSticker(
-                          index, sticker.customWidth, value);
-                    },
-                  ),
-                  Text("${sticker.customHeight.toStringAsFixed(1)} cm"),
+                  Obx(() {
+                    return TextField(
+                      enabled: !sticker.confirmed.value,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (value) {
+                        double height =
+                            double.tryParse(value.replaceAll(',', '.')) ??
+                                sticker.customHeight.value;
+                        controller.setCustomDimensionsForSticker(
+                            index, sticker.customWidth.value, height);
+                      },
+                      decoration: InputDecoration(
+                        hintText: "Height",
+                        errorText: controller.heightErrorText.value,
+                      ),
+                      controller: TextEditingController(
+                          text: sticker.customHeight.value.toString()),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -593,37 +632,28 @@ class DashboardScreen extends GetView<DashboardController> {
     );
   }
 
-  // Quantity Selection Widget
   Widget _buildQuantitySelection(StickerConfig sticker, int index) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Select Quantity:",
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: Slider(
-                min: 1,
-                max: 100,
-                divisions: 99,
-                value: sticker.quantity.toDouble(),
-                onChanged: (value) {
-                  controller.setQuantityForSticker(
-                      index, value.toInt());
-                },
-              ),
-            ),
-            SizedBox(
-              width: 50,
-              child: Text(
-                "${sticker.quantity}",
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ],
+        const Text(
+          "Select Quantity:",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
+        const SizedBox(height: 10),
+        Obx(() {
+          return TextField(
+            enabled: !sticker.confirmed.value,
+            keyboardType: TextInputType.number,
+            onChanged: (value) {
+              int quantity = int.tryParse(value) ?? sticker.quantity.value;
+              if (quantity < 1) quantity = 1;
+              controller.setQuantityForSticker(index, quantity);
+            },
+            controller:
+                TextEditingController(text: sticker.quantity.value.toString()),
+          );
+        }),
       ],
     );
   }
@@ -675,9 +705,7 @@ class DashboardScreen extends GetView<DashboardController> {
           const SizedBox(height: kSpacing),
           Row(
             children: [
-              Expanded(
-                  child:
-                      HeaderText("Order Tracking", color: textColor)),
+              Expanded(child: HeaderText("Order Tracking", color: textColor)),
               IconButton(
                 onPressed: controller.onPressedCalendar,
                 icon: Icon(EvaIcons.calendarOutline, color: textColor),
@@ -697,7 +725,6 @@ class DashboardScreen extends GetView<DashboardController> {
   }
 }
 
-// Bottom Navbar Widget
 class _BottomNavbar extends StatelessWidget {
   final bool isDarkMode;
   const _BottomNavbar({Key? key, required this.isDarkMode}) : super(key: key);

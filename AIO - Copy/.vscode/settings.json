@@ -7,6 +7,5 @@
             "source.fixAll": true,
             "source.organizeImports": true
         }
-    },
-    "dart.flutterSdkPath": "C:\\Users\\otter\\Desktop\\Flutter\\bin" // Replace with the actual path to your Flutter SDK if needed
+    }
 }
