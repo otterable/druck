@@ -1,10 +1,16 @@
-part of dashboard;
+// My lib/app/features/dashboard/views/components/task_in_progress.dart
+// If this file is part of the problem, provide me a full update to the code, without omitting a single part. Include these note lines in the code as well, please. Otherwise do not update.
 
-class _TaskInProgress extends StatelessWidget {
+import 'package:flutter/material.dart';
+import 'package:daily_task/app/shared_components/card_task.dart';
+import 'package:daily_task/app/shared_components/task_progress.dart';
+
+class TaskInProgress extends StatelessWidget {
   final List<CardTaskData> data;
   final Color textColor;
 
-  const _TaskInProgress({required this.data, required this.textColor, Key? key}) : super(key: key);
+  const TaskInProgress({required this.data, required this.textColor, Key? key})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -32,14 +38,15 @@ class _TaskInProgress extends StatelessWidget {
 
   Color _getSequenceColor(int index) {
     int val = index % 4;
-    if (val == 3) {
-      return Colors.indigo;
-    } else if (val == 2) {
-      return Colors.grey;
-    } else if (val == 1) {
-      return Colors.redAccent;
-    } else {
-      return Colors.lightBlue;
+    switch (val) {
+      case 3:
+        return Colors.indigo;
+      case 2:
+        return Colors.grey;
+      case 1:
+        return Colors.redAccent;
+      default:
+        return Colors.lightBlue;
     }
   }
 }

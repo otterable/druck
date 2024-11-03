@@ -1,16 +1,15 @@
-
-// My lib/app/views/components/task_group.dart
+// My lib/app/features/dashboard/views/components/task_group.dart
 // If this file is part of the problem, provide me a full update to the code, without omitting a single part. Include these note lines in the code as well, please. Otherwise do not update.
-part of dashboard;
 
-class _TaskGroup extends StatelessWidget {
-  final String title;
+import 'package:flutter/material.dart';
+import 'package:daily_task/app/shared_components/list_task_date.dart';
+
+class TaskGroup extends StatelessWidget {
   final List<ListTaskDateData> data;
   final Function(int index, ListTaskDateData data) onPressed;
   final Color? textColor;
 
-  const _TaskGroup({
-    required this.title,
+  const TaskGroup({
     required this.data,
     required this.onPressed,
     this.textColor,
@@ -20,13 +19,15 @@ class _TaskGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: [
-        Text(
-          title,
-          style: TextStyle(color: textColor ?? Colors.black),
-        ),
-        // Additional task group data rendering here
-      ],
+      children: data.map((task) {
+        return ListTile(
+          title: Text(
+            task.label,
+            style: TextStyle(color: textColor ?? Colors.black),
+          ),
+          onTap: () => onPressed(data.indexOf(task), task),
+        );
+      }).toList(),
     );
   }
 }

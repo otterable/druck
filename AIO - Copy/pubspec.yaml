@@ -1,3 +1,5 @@
+
+# My pubspec.yaml
 name: daily_task
 description: A new Flutter project.
 
@@ -6,7 +8,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ">=2.12.0 <3.0.0"
+  sdk: ">=2.17.0 <3.0.0"
 
 dependencies:
   flutter:
@@ -18,11 +20,12 @@ dependencies:
   percent_indicator: ^3.4.0
   dotted_border: ^2.0.0+1
   timeago: ^3.1.0
-  google_sign_in: ^5.2.1  # Add this line for Google Sign-In support
-
+  google_sign_in: ^5.4.4
+  image_picker: ^0.8.5+3
+  path_provider: ^2.0.11
 
 dev_dependencies:
-  flutter_lints: ^1.0.0
+  flutter_lints: ^1.0.4
   flutter_test:
     sdk: flutter
 

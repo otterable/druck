@@ -1,52 +1,41 @@
-// My lib/app/views/components/main_menu.dart
-part of dashboard;
+// My lib/app/features/dashboard/views/components/main_menu.dart
+// If this file is part of the problem, provide me a full update to the code, without omitting a single part. Include these note lines in the code as well, please. Otherwise do not update.
 
-class _MainMenu extends StatelessWidget {
+import 'package:flutter/material.dart';
+import 'package:eva_icons_flutter/eva_icons_flutter.dart';
+
+class MainMenu extends StatelessWidget {
   final bool isDarkMode;
-  final Function(int index, SelectionButtonData value) onSelected;
 
-  const _MainMenu({
-    required this.onSelected,
-    required this.isDarkMode, // required to ensure it’s always passed in
-    Key? key,
-  }) : super(key: key);
+  const MainMenu({Key? key, required this.isDarkMode}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final textColor = isDarkMode ? Colors.white : Colors.black;
-
     return Column(
       children: [
         SelectionButton(
-          data: [
-            SelectionButtonData(
-              activeIcon: EvaIcons.home,
-              icon: EvaIcons.homeOutline,
-              label: "Home",
-              color: textColor,
-            ),
-            SelectionButtonData(
-              activeIcon: EvaIcons.bell,
-              icon: EvaIcons.bellOutline,
-              label: "Notifications",
-              totalNotif: 100,
-              color: textColor,
-            ),
-            SelectionButtonData(
-              activeIcon: EvaIcons.checkmarkCircle2,
-              icon: EvaIcons.checkmarkCircle,
-              label: "Task",
-              totalNotif: 20,
-              color: textColor,
-            ),
-            SelectionButtonData(
-              activeIcon: EvaIcons.settings,
-              icon: EvaIcons.settingsOutline,
-              label: "Settings",
-              color: textColor,
-            ),
-          ],
-          onSelected: onSelected,
+          icon: EvaIcons.homeOutline,
+          activeIcon: EvaIcons.home,
+          label: "Home",
+          textColor: textColor,
+        ),
+        SelectionButton(
+          icon: EvaIcons.bellOutline,
+          activeIcon: EvaIcons.bell,
+          label: "Notifications",
+          textColor: textColor,
+        ),
+        SelectionButton(
+          icon: EvaIcons.checkmarkCircle,
+          activeIcon: EvaIcons.checkmarkCircle2,
+          label: "Completed",
+          textColor: textColor,
+        ),
+        SelectionButton(
+          icon: EvaIcons.settingsOutline,
+          activeIcon: EvaIcons.settings,
+          label: "Settings",
           textColor: textColor,
         ),
       ],
@@ -54,49 +43,26 @@ class _MainMenu extends StatelessWidget {
   }
 }
 
-class SelectionButtonData {
-  final IconData activeIcon;
-  final IconData icon;
-  final String label;
-  final int? totalNotif;
-  final Color color;
-
-  SelectionButtonData({
-    required this.activeIcon,
-    required this.icon,
-    required this.label,
-    this.totalNotif,
-    required this.color, // enforce color requirement
-  });
-}
-
 class SelectionButton extends StatelessWidget {
-  final List<SelectionButtonData> data;
-  final Function(int index, SelectionButtonData value) onSelected;
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
   final Color textColor;
 
   const SelectionButton({
-    required this.data,
-    required this.onSelected,
-    required this.textColor, // enforce color requirement
     Key? key,
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.textColor,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: data.asMap().entries.map((entry) {
-        final index = entry.key;
-        final item = entry.value;
-        return ListTile(
-          leading: Icon(item.icon, color: textColor), // use textColor
-          title: Text(item.label, style: TextStyle(color: textColor)), // use textColor
-          trailing: item.totalNotif != null
-              ? Text(item.totalNotif.toString(), style: TextStyle(color: textColor))
-              : null,
-          onTap: () => onSelected(index, item),
-        );
-      }).toList(),
+    return ListTile(
+      leading: Icon(icon, color: textColor),
+      title: Text(label, style: TextStyle(color: textColor)),
+      onTap: () {},
     );
   }
 }

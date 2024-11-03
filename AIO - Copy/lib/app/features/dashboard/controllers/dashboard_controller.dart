@@ -1,4 +1,12 @@
-part of dashboard;
+// My dashboard_controller.dart
+// Do not remove this comment text when giving me the new code.
+
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:daily_task/app/shared_components/task_progress.dart';
 
 class DashboardController extends GetxController {
   final scafoldKey = GlobalKey<ScaffoldState>();
@@ -6,125 +14,18 @@ class DashboardController extends GetxController {
     clientId: '545461705793-3v0101rqbcp0hqkeiqt0ohca9me9d0b3.apps.googleusercontent.com',
   );
 
-  // Profile data - updated dynamically after Google sign-in
   final Rx<UserProfileData?> userProfile = Rx<UserProfileData?>(null);
-
-  // Task data
   final dataTask = const TaskProgressData(totalTask: 5, totalCompleted: 1);
-
-  // Google user account data
   Rx<GoogleSignInAccount?> user = Rx<GoogleSignInAccount?>(null);
-
-  // Dark mode toggle
   RxBool isDarkMode = false.obs;
-
-  // Task data examples
-  final taskInProgress = [
-    CardTaskData(
-      label: "Determine meeting schedule",
-      jobDesk: "System Analyst",
-      dueDate: DateTime.now().add(const Duration(minutes: 50)),
-    ),
-    CardTaskData(
-      label: "Personal branding",
-      jobDesk: "Marketing",
-      dueDate: DateTime.now().add(const Duration(hours: 4)),
-    ),
-    CardTaskData(
-      label: "UI UX",
-      jobDesk: "Design",
-      dueDate: DateTime.now().add(const Duration(days: 2)),
-    ),
-    CardTaskData(
-      label: "Determine meeting schedule",
-      jobDesk: "System Analyst",
-      dueDate: DateTime.now().add(const Duration(minutes: 50)),
-    ),
-  ];
-
-  // Weekly task data examples
-  final weeklyTask = [
-    ListTaskAssignedData(
-      icon: const Icon(EvaIcons.monitor, color: Colors.blueGrey),
-      label: "Slicing UI",
-      jobDesk: "Programmer",
-      assignTo: "Alex Ferguso",
-      editDate: DateTime.now().subtract(const Duration(hours: 2)),
-    ),
-    ListTaskAssignedData(
-      icon: const Icon(EvaIcons.star, color: Colors.amber),
-      label: "Personal branding",
-      jobDesk: "Marketing",
-      assignTo: "Justin Beck",
-      editDate: DateTime.now().subtract(const Duration(days: 50)),
-    ),
-    const ListTaskAssignedData(
-      icon: Icon(EvaIcons.colorPalette, color: Colors.blue),
-      label: "UI UX ",
-      jobDesk: "Design",
-    ),
-    const ListTaskAssignedData(
-      icon: Icon(EvaIcons.pieChart, color: Colors.redAccent),
-      label: "Determine meeting schedule ",
-      jobDesk: "System Analyst",
-    ),
-  ];
-
-  // Task group data examples
-  final taskGroup = [
-    [
-      ListTaskDateData(
-        date: DateTime.now().add(const Duration(days: 2, hours: 10)),
-        label: "5 posts on Instagram",
-        jobdesk: "Marketing",
-      ),
-      ListTaskDateData(
-        date: DateTime.now().add(const Duration(days: 2, hours: 11)),
-        label: "Platform Concept",
-        jobdesk: "Animation",
-      ),
-    ],
-    [
-      ListTaskDateData(
-        date: DateTime.now().add(const Duration(days: 4, hours: 5)),
-        label: "UI UX Marketplace",
-        jobdesk: "Design",
-      ),
-      ListTaskDateData(
-        date: DateTime.now().add(const Duration(days: 4, hours: 6)),
-        label: "Create Post For App",
-        jobdesk: "Marketing",
-      ),
-    ],
-    [
-      ListTaskDateData(
-        date: DateTime.now().add(const Duration(days: 6, hours: 5)),
-        label: "2 Posts on Facebook",
-        jobdesk: "Marketing",
-      ),
-      ListTaskDateData(
-        date: DateTime.now().add(const Duration(days: 6, hours: 6)),
-        label: "Create Icon App",
-        jobdesk: "Design",
-      ),
-      ListTaskDateData(
-        date: DateTime.now().add(const Duration(days: 6, hours: 8)),
-        label: "Fixing Error Payment",
-        jobdesk: "Programmer",
-      ),
-      ListTaskDateData(
-        date: DateTime.now().add(const Duration(days: 6, hours: 10)),
-        label: "Create Form Interview",
-        jobdesk: "System Analyst",
-      ),
-    ]
-  ];
+  RxBool isPrintMode = false.obs;
+  RxList<StickerConfig> stickers = <StickerConfig>[].obs;
+  RxInt currentStickerIndex = (-1).obs;
 
   DashboardController() {
     _initializeGoogleSignIn();
   }
 
-  // Initialize Google Sign-In
   void _initializeGoogleSignIn() async {
     debugPrint("Initializing Google Sign-In...");
     _googleSignIn.onCurrentUserChanged.listen((account) {
@@ -132,7 +33,9 @@ class DashboardController extends GetxController {
       debugPrint("User signed in: ${account?.displayName ?? "None"}");
       if (account != null) {
         userProfile.value = UserProfileData(
-          image: account.photoUrl != null ? NetworkImage(account.photoUrl!) : AssetImage(ImageRasterPath.man) as ImageProvider,
+          image: account.photoUrl != null
+              ? NetworkImage(account.photoUrl!) as ImageProvider<Object>
+              : const AssetImage('assets/images/raster/man.png'),
           name: account.displayName ?? "User",
           jobDesk: account.email,
         );
@@ -140,10 +43,9 @@ class DashboardController extends GetxController {
         userProfile.value = null;
       }
     });
-    await _googleSignIn.signInSilently();  // Attempt to sign in silently
+    await _googleSignIn.signInSilently();
   }
 
-  // Sign in with Google
   Future<void> signInWithGoogle() async {
     try {
       debugPrint("Attempting Google Sign-In...");
@@ -153,7 +55,6 @@ class DashboardController extends GetxController {
     }
   }
 
-  // Sign out from Google
   Future<void> signOutFromGoogle() async {
     try {
       debugPrint("Attempting to sign out...");
@@ -165,15 +66,107 @@ class DashboardController extends GetxController {
     }
   }
 
-  // Method to toggle dark mode
   void toggleDarkMode(bool value) {
     isDarkMode.value = value;
+    debugPrint("Dark mode toggled: $value");
+  }
+
+  void togglePrintMode() {
+    isPrintMode.value = !isPrintMode.value;
+    debugPrint("Print mode toggled: ${isPrintMode.value}");
+    if (isPrintMode.value) {
+      stickers.clear();
+      currentStickerIndex.value = -1;
+      debugPrint("Stickers list cleared.");
+    }
+  }
+
+  void addStickerConfig(StickerConfig stickerConfig) {
+    stickers.add(stickerConfig);
+    currentStickerIndex.value = stickers.length - 1;
+    debugPrint("Sticker added: ${stickerConfig.toString()}");
+  }
+
+  void removeStickerConfig(int index) {
+    if (index >= 0 && index < stickers.length) {
+      stickers.removeAt(index);
+      debugPrint("Sticker at index $index removed.");
+      if (currentStickerIndex.value >= stickers.length) {
+        currentStickerIndex.value = stickers.length - 1;
+      }
+    } else {
+      debugPrint("Invalid index for sticker removal: $index");
+    }
+  }
+
+  void confirmStickerSettings(int index) {
+    if (index >= 0 && index < stickers.length) {
+      stickers[index].confirmed = true;
+      debugPrint("Sticker settings confirmed for index $index");
+    } else {
+      debugPrint("Invalid index for confirming sticker settings: $index");
+    }
+  }
+
+  void proceedWithOrder() {
+    debugPrint("Proceeding with order for ${stickers.length} stickers...");
+    for (var sticker in stickers) {
+      debugPrint("Sticker Config: ${sticker.toString()}");
+    }
+  }
+
+  Future<void> uploadImages() async {
+    final ImagePicker _picker = ImagePicker();
+    debugPrint("Opening image picker...");
+    try {
+      final List<XFile>? images = await _picker.pickMultiImage();
+      if (images != null && images.isNotEmpty) {
+        for (var image in images) {
+          Uint8List imageData = await image.readAsBytes();
+          final stickerConfig = StickerConfig(
+            imageData: imageData,
+            size: '10x10cm',
+            quantity: 1,
+            confirmed: false,
+          );
+          addStickerConfig(stickerConfig);
+          debugPrint("Image selected: ${image.path}");
+        }
+      } else {
+        debugPrint("No images selected.");
+      }
+    } catch (e) {
+      debugPrint("Error picking images: $e");
+    }
+  }
+
+  void setSelectedFormatForSticker(int index, String format) {
+    if (index >= 0 && index < stickers.length) {
+      stickers[index].size = format;
+      debugPrint("Sticker at index $index size set to: $format");
+    }
+  }
+
+  void setCustomDimensionsForSticker(int index, double width, double height) {
+    if (index >= 0 && index < stickers.length) {
+      stickers[index].customWidth = width;
+      stickers[index].customHeight = height;
+      stickers[index].size =
+          '${width.toStringAsFixed(1)}x${height.toStringAsFixed(1)}cm';
+      debugPrint(
+          "Sticker at index $index custom dimensions set to: ${stickers[index].size}");
+    }
+  }
+
+  void setQuantityForSticker(int index, int quantity) {
+    if (index >= 0 && index < stickers.length) {
+      stickers[index].quantity = quantity;
+      debugPrint("Sticker at index $index quantity set to: $quantity");
+    }
   }
 
   void onPressedProfil() {}
-
   void onSelectedMainMenu(int index, SelectionButtonData value) {}
-
   void onPressedTask(int index, ListTaskAssignedData data) {}
   void onPressedAssignTask(int index, ListTaskAssignedData data) {}
   void onPressedMemberTask(int index, ListTaskAssignedData data) {}
@@ -184,3 +177,42 @@ class DashboardController extends GetxController {
     scafoldKey.currentState?.openDrawer();
   }
 }
+
+class StickerConfig {
+  Uint8List imageData;
+  String size;
+  int quantity;
+  bool confirmed;
+  double customWidth;
+  double customHeight;
+
+  StickerConfig({
+    required this.imageData,
+    this.size = '10x10cm',
+    this.quantity = 1,
+    this.confirmed = false,
+    this.customWidth = 10.0,
+    this.customHeight = 10.0,
+  });
+
+  @override
+  String toString() {
+    return 'StickerConfig(size: $size, quantity: $quantity, confirmed: $confirmed)';
+  }
+}
+
+class UserProfileData {
+  final ImageProvider<Object> image;
+  final String name;
+  final String jobDesk;
+
+  UserProfileData({
+    required this.image,
+    required this.name,
+    required this.jobDesk,
+  });
+}
+
+class SelectionButtonData {}
+class ListTaskAssignedData {}
+class ListTaskDateData {}

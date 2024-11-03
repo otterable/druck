@@ -1,4 +1,6 @@
+// My app/config/routes/app_pages.dart
 import '../../features/dashboard/views/screens/dashboard_screen.dart';
+import '../../features/dashboard/bindings/dashboard_binding.dart'; // Import the DashboardBinding class
 import 'package:get/get.dart';
 
 part 'app_routes.dart';

@@ -1,9 +1,8 @@
-
 // My lib/app/shared_components/simple_user_profile.dart
 // If this file is part of the problem, provide me a full update to the code, without omitting a single part. Include these note lines in the code as well, please. Otherwise do not update.
 import 'package:daily_task/app/constans/app_constants.dart';
-import 'package:flutter/material.dart';
 import 'package:daily_task/app/utils/helpers/app_helpers.dart';
+import 'package:flutter/material.dart';
 
 class SimpleUserProfile extends StatelessWidget {
   const SimpleUserProfile({

@@ -1,8 +1,10 @@
-// My lib/app/views/screens/dashboard_screen.dart
+// My lib/app/features/dashboard/views/screens/dashboard_screen.dart
 // If this file is part of the problem, provide me a full update to the code, without omitting a single part. Include these note lines in the code as well, please. Otherwise do not update.
 
-library dashboard;
+import 'dart:typed_data';
 
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:daily_task/app/constans/app_constants.dart';
 import 'package:daily_task/app/shared_components/card_task.dart';
 import 'package:daily_task/app/shared_components/header_text.dart';
@@ -11,27 +13,21 @@ import 'package:daily_task/app/shared_components/list_task_date.dart';
 import 'package:daily_task/app/shared_components/responsive_builder.dart';
 import 'package:daily_task/app/shared_components/task_progress.dart';
 import 'package:daily_task/app/shared_components/user_profile.dart';
-import 'package:eva_icons_flutter/eva_icons_flutter.dart';
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:daily_task/app/utils/helpers/app_helpers.dart';
-import 'package:intl/intl.dart';
+import 'package:eva_icons_flutter/eva_icons_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 
-// binding
-part '../../bindings/dashboard_binding.dart';
+import '../../controllers/dashboard_controller.dart';
 
-// controller
-part '../../controllers/dashboard_controller.dart';
-
-// component
-part '../components/bottom_navbar.dart';
-part '../components/header_order_history.dart';
-part '../components/main_menu.dart';
-part '../components/task_in_progress.dart';
-part '../components/weekly_task.dart';
-part '../components/task_group.dart';
+// Import your component files
+import '../components/header_order_history.dart';
+import '../components/main_menu.dart';
+import '../components/task_in_progress.dart';
+import '../components/weekly_task.dart';
+import '../components/task_group.dart';
 
 class DashboardScreen extends GetView<DashboardController> {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -40,6 +36,7 @@ class DashboardScreen extends GetView<DashboardController> {
   Widget build(BuildContext context) {
     return Obx(() {
       final isDarkMode = controller.isDarkMode.value;
+      final isPrintMode = controller.isPrintMode.value;
       return Scaffold(
         key: controller.scafoldKey,
         backgroundColor: isDarkMode ? const Color(0xFF111111) : Colors.white,
@@ -47,7 +44,8 @@ class DashboardScreen extends GetView<DashboardController> {
             ? null
             : Drawer(
                 child: SafeArea(
-                  child: SingleChildScrollView(child: _buildSidebar(context, isDarkMode)),
+                  child: SingleChildScrollView(
+                      child: _buildSidebar(context, isDarkMode)),
                 ),
               ),
         bottomNavigationBar: _BottomNavbar(isDarkMode: isDarkMode),
@@ -59,10 +57,12 @@ class DashboardScreen extends GetView<DashboardController> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildImageBanner(),
-                    _buildTaskContent(
-                      onPressedMenu: () => controller.openDrawer(),
-                      isDarkMode: isDarkMode,
-                    ),
+                    isPrintMode
+                        ? _buildPrintSection()
+                        : _buildTaskContent(
+                            onPressedMenu: () => controller.openDrawer(),
+                            isDarkMode: isDarkMode,
+                          ),
                     _buildCalendarContent(isDarkMode),
                   ],
                 ),
@@ -79,10 +79,12 @@ class DashboardScreen extends GetView<DashboardController> {
                       child: Column(
                         children: [
                           _buildImageBanner(),
-                          _buildTaskContent(
-                            onPressedMenu: () => controller.openDrawer(),
-                            isDarkMode: isDarkMode,
-                          ),
+                          isPrintMode
+                              ? _buildPrintSection()
+                              : _buildTaskContent(
+                                  onPressedMenu: () => controller.openDrawer(),
+                                  isDarkMode: isDarkMode,
+                                ),
                         ],
                       ),
                     ),
@@ -119,7 +121,9 @@ class DashboardScreen extends GetView<DashboardController> {
                       child: Column(
                         children: [
                           _buildImageBanner(),
-                          _buildTaskContent(isDarkMode: isDarkMode),
+                          isPrintMode
+                              ? _buildPrintSection()
+                              : _buildTaskContent(isDarkMode: isDarkMode),
                         ],
                       ),
                     ),
@@ -147,22 +151,26 @@ class DashboardScreen extends GetView<DashboardController> {
   // Sidebar with updated UI elements
   Widget _buildSidebar(BuildContext context, bool isDarkMode) {
     final DateTime now = DateTime.now();
-    final bool isWeekend = now.weekday == DateTime.sunday || now.weekday == DateTime.friday;
-    final String printingTimeText = isWeekend ? "Current printing time: 2 days" : "Current printing time: 1 day";
+    final bool isWeekend =
+        now.weekday == DateTime.sunday || now.weekday == DateTime.friday;
+    final String printingTimeText = isWeekend
+        ? "Current printing time: 2 days"
+        : "Current printing time: 1 day";
     final Color printingTimeColor = isWeekend ? Colors.orange : Colors.green;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Logo and Service Title
-        Container(
+        SizedBox(
           width: double.infinity,
           child: Column(
             children: [
-              Container(
+              SizedBox(
                 width: double.infinity,
                 child: Image.asset(
-                  isDarkMode ? 'assets/images/logo_darkmode.png' : 'assets/images/logo.png',
+                  isDarkMode
+                      ? 'assets/images/logo_darkmode.png'
+                      : 'assets/images/logo.png',
                   fit: BoxFit.contain,
                 ),
               ),
@@ -190,7 +198,9 @@ class DashboardScreen extends GetView<DashboardController> {
                 Obx(() {
                   final user = controller.user.value;
                   return Text(
-                    user != null ? "Logged in as:" : "Order / manage your orders:",
+                    user != null
+                        ? "Logged in as:"
+                        : "Order / manage your orders:",
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -208,7 +218,8 @@ class DashboardScreen extends GetView<DashboardController> {
                             Text(
                               user.displayName ?? "User",
                               style: TextStyle(
-                                color: isDarkMode ? Colors.white : Colors.black,
+                                color:
+                                    isDarkMode ? Colors.white : Colors.black,
                                 fontSize: 18,
                               ),
                             ),
@@ -217,9 +228,12 @@ class DashboardScreen extends GetView<DashboardController> {
                               onPressed: controller.signOutFromGoogle,
                               child: const Text("Log out"),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: isDarkMode ? Colors.white : Colors.black,
-                                foregroundColor: isDarkMode ? Colors.black : Colors.white,
-                                textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                                backgroundColor:
+                                    isDarkMode ? Colors.white : Colors.black,
+                                foregroundColor:
+                                    isDarkMode ? Colors.black : Colors.white,
+                                textStyle: const TextStyle(
+                                    fontWeight: FontWeight.bold),
                               ),
                             ),
                           ],
@@ -228,10 +242,14 @@ class DashboardScreen extends GetView<DashboardController> {
                           onPressed: controller.signInWithGoogle,
                           child: const Text("Log in with Google"),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: isDarkMode ? Colors.white : Colors.black,
-                            foregroundColor: isDarkMode ? Colors.black : Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                            textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                            backgroundColor:
+                                isDarkMode ? Colors.white : Colors.black,
+                            foregroundColor:
+                                isDarkMode ? Colors.black : Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 10),
+                            textStyle:
+                                const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         );
                 }),
@@ -242,9 +260,10 @@ class DashboardScreen extends GetView<DashboardController> {
 
         const Divider(height: 20, thickness: 1),
 
-        // Second Headline Section with Icons and Separate Points
+        // Section with Icons and Descriptions
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -258,14 +277,16 @@ class DashboardScreen extends GetView<DashboardController> {
               _buildFeatureItem(
                 icon: Icons.attach_money,
                 title: "Reasonable pricing",
-                description: "There's no reason for 5 small stickers to cost €20. That's why we created this service.",
+                description:
+                    "There's no reason for 5 small stickers to cost €20.",
                 isDarkMode: isDarkMode,
               ),
               const SizedBox(height: 15),
               _buildFeatureItem(
                 icon: Icons.done_all,
                 title: "No misunderstandings",
-                description: "Automated process, no risk of a worker screwing up your order.",
+                description:
+                    "Automated process, no risk of a worker screwing up your order.",
                 isDarkMode: isDarkMode,
               ),
             ],
@@ -274,7 +295,7 @@ class DashboardScreen extends GetView<DashboardController> {
 
         const Divider(height: 20, thickness: 1),
 
-        // Bottom Buttons
+        // Print Button and Order Management
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Column(
@@ -282,13 +303,16 @@ class DashboardScreen extends GetView<DashboardController> {
               ElevatedButton.icon(
                 icon: const Icon(Icons.print),
                 label: const Text("Print"),
-                onPressed: () {},
+                onPressed: () => controller.togglePrintMode(),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 40),
                   padding: const EdgeInsets.all(10),
-                  backgroundColor: isDarkMode ? Colors.white : Colors.black,
-                  foregroundColor: isDarkMode ? Colors.black : Colors.white,
-                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                  backgroundColor:
+                      isDarkMode ? Colors.white : Colors.black,
+                  foregroundColor:
+                      isDarkMode ? Colors.black : Colors.white,
+                  textStyle:
+                      const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(height: 10),
@@ -299,9 +323,12 @@ class DashboardScreen extends GetView<DashboardController> {
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 40),
                   padding: const EdgeInsets.all(10),
-                  backgroundColor: isDarkMode ? Colors.white : Colors.black,
-                  foregroundColor: isDarkMode ? Colors.black : Colors.white,
-                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                  backgroundColor:
+                      isDarkMode ? Colors.white : Colors.black,
+                  foregroundColor:
+                      isDarkMode ? Colors.black : Colors.white,
+                  textStyle:
+                      const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -310,7 +337,7 @@ class DashboardScreen extends GetView<DashboardController> {
 
         const Divider(height: 20, thickness: 1),
 
-        // Printing Time Section
+        // Printing Time Display
         Padding(
           padding: const EdgeInsets.all(10),
           child: Row(
@@ -347,6 +374,7 @@ class DashboardScreen extends GetView<DashboardController> {
     );
   }
 
+  // Feature item helper for sidebar
   Widget _buildFeatureItem({
     required IconData icon,
     required String title,
@@ -356,7 +384,8 @@ class DashboardScreen extends GetView<DashboardController> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: isDarkMode ? Colors.white : Colors.black, size: 28),
+        Icon(icon,
+            color: isDarkMode ? Colors.white : Colors.black, size: 28),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -398,7 +427,209 @@ class DashboardScreen extends GetView<DashboardController> {
     );
   }
 
-  Widget _buildTaskContent({Function()? onPressedMenu, required bool isDarkMode}) {
+  // Print Section
+  Widget _buildPrintSection() {
+    return Padding(
+      padding:
+          const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      child: Obx(() {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (controller.stickers.isEmpty)
+              Center(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text("Upload Images"),
+                  onPressed: () => controller.uploadImages(),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.all(16),
+                    textStyle: const TextStyle(fontSize: 18),
+                  ),
+                ),
+              )
+            else
+              Column(
+                children: [
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: controller.stickers.length,
+                    itemBuilder: (context, index) {
+                      return _buildStickerConfigCard(index);
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: controller.proceedWithOrder,
+                    child: const Text("Proceed with Order"),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.all(16),
+                      textStyle: const TextStyle(fontSize: 18),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        );
+      }),
+    );
+  }
+
+  // Sticker Configuration Card
+  Widget _buildStickerConfigCard(int index) {
+    final sticker = controller.stickers[index];
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      child: Obx(() {
+        return ExpansionTile(
+          leading: Image.memory(
+            sticker.imageData,
+            width: 50,
+            height: 50,
+            fit: BoxFit.cover,
+          ),
+          title: Text("Sticker ${index + 1}"),
+          subtitle: Text("Quantity: ${sticker.quantity}"),
+          initiallyExpanded: controller.currentStickerIndex.value == index,
+          onExpansionChanged: (expanded) {
+            if (expanded) {
+              controller.currentStickerIndex.value = index;
+            } else {
+              controller.currentStickerIndex.value = -1;
+            }
+          },
+          children: [
+            _buildSizeSelection(sticker, index),
+            _buildQuantitySelection(sticker, index),
+            OverflowBar(
+              alignment: MainAxisAlignment.spaceBetween,
+              children: [
+                TextButton(
+                  onPressed: () => controller.removeStickerConfig(index),
+                  child: const Text("Delete"),
+                ),
+                TextButton(
+                  onPressed: () => controller.confirmStickerSettings(index),
+                  child: const Text("Confirm"),
+                ),
+              ],
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  // Size Selection Widget
+  Widget _buildSizeSelection(StickerConfig sticker, int index) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Select Size:",
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          children: List.generate(
+            9,
+            (i) {
+              final size = '${i + 2}x${i + 2}cm';
+              return ChoiceChip(
+                label: Text(size),
+                selected: sticker.size == size,
+                onSelected: (selected) {
+                  if (selected) {
+                    controller.setSelectedFormatForSticker(
+                        index, size);
+                  }
+                },
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 10),
+        const Text("Or select custom size:"),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                children: [
+                  const Text("Width (X) in cm"),
+                  Slider(
+                    min: 1,
+                    max: 27,
+                    value: sticker.customWidth,
+                    onChanged: (value) {
+                      controller.setCustomDimensionsForSticker(
+                          index, value, sticker.customHeight);
+                    },
+                  ),
+                  Text("${sticker.customWidth.toStringAsFixed(1)} cm"),
+                ],
+              ),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                children: [
+                  const Text("Height (Y) in cm"),
+                  Slider(
+                    min: 1,
+                    max: 27,
+                    value: sticker.customHeight,
+                    onChanged: (value) {
+                      controller.setCustomDimensionsForSticker(
+                          index, sticker.customWidth, value);
+                    },
+                  ),
+                  Text("${sticker.customHeight.toStringAsFixed(1)} cm"),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Quantity Selection Widget
+  Widget _buildQuantitySelection(StickerConfig sticker, int index) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Select Quantity:",
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: Slider(
+                min: 1,
+                max: 100,
+                divisions: 99,
+                value: sticker.quantity.toDouble(),
+                onChanged: (value) {
+                  controller.setQuantityForSticker(
+                      index, value.toInt());
+                },
+              ),
+            ),
+            SizedBox(
+              width: 50,
+              child: Text(
+                "${sticker.quantity}",
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTaskContent(
+      {Function()? onPressedMenu, required bool isDarkMode}) {
     final textColor = isDarkMode ? Colors.white : Colors.black;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: kSpacing),
@@ -417,29 +648,19 @@ class DashboardScreen extends GetView<DashboardController> {
                 ),
               Expanded(
                 child: HeaderText(
-                  DateTime.now().formatdMMMMY(),
+                  DateFormat('d MMMM yyyy').format(DateTime.now()),
                   color: textColor,
                 ),
               ),
               const SizedBox(width: kSpacing / 2),
               SizedBox(
                 width: 200,
-                child: TaskProgress(data: controller.dataTask, textColor: textColor),
+                child: TaskProgress(
+                    data: controller.dataTask, textColor: textColor),
               ),
             ],
           ),
           const SizedBox(height: kSpacing),
-          _TaskInProgress(data: controller.taskInProgress, textColor: textColor),
-          const SizedBox(height: kSpacing * 2),
-          _HeaderOrderHistory(textColor: textColor),
-          const SizedBox(height: kSpacing),
-          _WeeklyTask(
-            data: controller.weeklyTask,
-            onPressed: controller.onPressedTask,
-            onPressedAssign: controller.onPressedAssignTask,
-            onPressedMember: controller.onPressedMemberTask,
-            textColor: textColor,
-          )
         ],
       ),
     );
@@ -454,7 +675,9 @@ class DashboardScreen extends GetView<DashboardController> {
           const SizedBox(height: kSpacing),
           Row(
             children: [
-              Expanded(child: HeaderText("Order Tracking", color: textColor)),
+              Expanded(
+                  child:
+                      HeaderText("Order Tracking", color: textColor)),
               IconButton(
                 onPressed: controller.onPressedCalendar,
                 icon: Icon(EvaIcons.calendarOutline, color: textColor),
@@ -468,16 +691,27 @@ class DashboardScreen extends GetView<DashboardController> {
             ],
           ),
           const SizedBox(height: kSpacing),
-          ...controller.taskGroup.map(
-            (e) => _TaskGroup(
-              title: DateFormat('d MMMM').format(e[0].date),
-              data: e,
-              onPressed: controller.onPressedTaskGroup,
-              textColor: textColor,
-            ),
-          ),
         ],
       ),
+    );
+  }
+}
+
+// Bottom Navbar Widget
+class _BottomNavbar extends StatelessWidget {
+  final bool isDarkMode;
+  const _BottomNavbar({Key? key, required this.isDarkMode}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return BottomNavigationBar(
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+        BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+      ],
+      backgroundColor: isDarkMode ? Colors.black : Colors.white,
+      unselectedItemColor: isDarkMode ? Colors.white70 : Colors.black54,
+      selectedItemColor: isDarkMode ? Colors.white : Colors.black,
     );
   }
 }
