@@ -1,4 +1,3 @@
-
 # My pubspec.yaml
 name: daily_task
 description: A new Flutter project.
@@ -23,6 +22,8 @@ dependencies:
   google_sign_in: ^5.4.4
   image_picker: ^0.8.5+3
   path_provider: ^2.0.11
+  http: ^0.13.4
+  flutter_stripe: ^8.0.0       # Added flutter_stripe package
 
 dev_dependencies:
   flutter_lints: ^1.0.4
@@ -36,7 +37,7 @@ flutter:
     - assets/images/banner.png
     - assets/images/raster/
     - assets/images/logo.png           # Light mode logo
-    - assets/images/logo_darkmode.png   # Dark mode logo
+    - assets/images/logo_darkmode.png  # Dark mode logo
 
   fonts:
     - family: Nunito
@@ -75,4 +76,4 @@ flutter:
           weight: 900
         - asset: assets/fonts/nunito/Nunito-BlackItalic.ttf
           weight: 900
-          style: italic 
+          style: italic

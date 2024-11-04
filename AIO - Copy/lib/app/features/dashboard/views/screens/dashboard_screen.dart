@@ -33,99 +33,119 @@ class DashboardScreen extends GetView<DashboardController> {
               ),
         bottomNavigationBar: _BottomNavbar(isDarkMode: isDarkMode),
         body: SafeArea(
-          child: ResponsiveBuilder(
-            mobileBuilder: (context, constraints) {
-              return SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildImageBanner(),
-                    isPrintMode
-                        ? _buildPrintSection()
-                        : _buildTaskContent(
-                            onPressedMenu: () => controller.openDrawer(),
-                            isDarkMode: isDarkMode,
-                          ),
-                    _buildCalendarContent(isDarkMode),
-                  ],
-                ),
-              );
-            },
-            tabletBuilder: (context, constraints) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Flexible(
-                    flex: constraints.maxWidth > 800 ? 8 : 7,
-                    child: SingleChildScrollView(
-                      controller: ScrollController(),
-                      child: Column(
-                        children: [
-                          _buildImageBanner(),
-                          isPrintMode
-                              ? _buildPrintSection()
-                              : _buildTaskContent(
+          child: Obx(() {
+            if (controller.isLoading.value) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (controller.showOrderSummary.value) {
+              return _buildOrderSummary();
+            } else {
+              return ResponsiveBuilder(
+                mobileBuilder: (context, constraints) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Hide banner when in print mode
+                      if (!isPrintMode) _buildImageBanner(),
+                      Expanded(
+                        child: isPrintMode
+                            ? _buildPrintSection()
+                            : SingleChildScrollView(
+                                child: _buildTaskContent(
                                   onPressedMenu: () => controller.openDrawer(),
                                   isDarkMode: isDarkMode,
                                 ),
-                        ],
+                              ),
                       ),
-                    ),
-                  ),
-                  SizedBox(
-                    height: MediaQuery.of(context).size.height,
-                    child: const VerticalDivider(),
-                  ),
-                  Flexible(
-                    flex: 4,
-                    child: SingleChildScrollView(
-                      controller: ScrollController(),
-                      child: _buildCalendarContent(isDarkMode),
-                    ),
-                  ),
-                ],
-              );
-            },
-            desktopBuilder: (context, constraints) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Flexible(
-                    flex: constraints.maxWidth > 1350 ? 3 : 4,
-                    child: SingleChildScrollView(
-                      controller: ScrollController(),
-                      child: _buildSidebar(context, isDarkMode),
-                    ),
-                  ),
-                  Flexible(
-                    flex: constraints.maxWidth > 1350 ? 10 : 9,
-                    child: SingleChildScrollView(
-                      controller: ScrollController(),
-                      child: Column(
-                        children: [
-                          _buildImageBanner(),
-                          isPrintMode
-                              ? _buildPrintSection()
-                              : _buildTaskContent(isDarkMode: isDarkMode),
-                        ],
+                      _buildOrderTracking(isDarkMode),
+                    ],
+                  );
+                },
+                tabletBuilder: (context, constraints) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Flexible(
+                        flex: constraints.maxWidth > 800 ? 8 : 7,
+                        child: Column(
+                          children: [
+                            // Hide banner when in print mode
+                            if (!isPrintMode) _buildImageBanner(),
+                            Expanded(
+                              child: isPrintMode
+                                  ? _buildPrintSection()
+                                  : SingleChildScrollView(
+                                      controller: ScrollController(),
+                                      child: _buildTaskContent(
+                                        onPressedMenu: () =>
+                                            controller.openDrawer(),
+                                        isDarkMode: isDarkMode,
+                                      ),
+                                    ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
-                  SizedBox(
-                    height: MediaQuery.of(context).size.height,
-                    child: const VerticalDivider(),
-                  ),
-                  Flexible(
-                    flex: 4,
-                    child: SingleChildScrollView(
-                      controller: ScrollController(),
-                      child: _buildCalendarContent(isDarkMode),
-                    ),
-                  ),
-                ],
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height,
+                        child: const VerticalDivider(),
+                      ),
+                      Flexible(
+                        flex: 4,
+                        child: SingleChildScrollView(
+                          controller: ScrollController(),
+                          child: _buildOrderTracking(isDarkMode),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+                desktopBuilder: (context, constraints) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Flexible(
+                        flex: constraints.maxWidth > 1350 ? 3 : 4,
+                        child: SingleChildScrollView(
+                          controller: ScrollController(),
+                          child: _buildSidebar(context, isDarkMode),
+                        ),
+                      ),
+                      Flexible(
+                        flex: constraints.maxWidth > 1350 ? 10 : 9,
+                        child: Column(
+                          children: [
+                            // Hide banner when in print mode
+                            if (!isPrintMode) _buildImageBanner(),
+                            Expanded(
+                              child: isPrintMode
+                                  ? _buildPrintSection()
+                                  : SingleChildScrollView(
+                                      controller: ScrollController(),
+                                      child: _buildTaskContent(
+                                        isDarkMode: isDarkMode,
+                                      ),
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height,
+                        child: const VerticalDivider(),
+                      ),
+                      Flexible(
+                        flex: 4,
+                        child: SingleChildScrollView(
+                          controller: ScrollController(),
+                          child: _buildOrderTracking(isDarkMode),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               );
-            },
-          ),
+            }
+          }),
         ),
       );
     });
@@ -400,15 +420,21 @@ class DashboardScreen extends GetView<DashboardController> {
   }
 
   Widget _buildPrintSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Obx(() {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (controller.stickers.isEmpty)
-              Center(
-                child: ElevatedButton.icon(
+    return Obx(() {
+      if (controller.stickers.isEmpty) {
+        // No stickers: center the upload button and text vertically and horizontally
+        return Center(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  "Upload as many images for stickers as you want.",
+                  style: TextStyle(fontSize: 18),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
                   icon: const Icon(Icons.upload_file),
                   label: const Text("Upload Images"),
                   onPressed: () => controller.uploadImages(),
@@ -417,38 +443,59 @@ class DashboardScreen extends GetView<DashboardController> {
                     textStyle: const TextStyle(fontSize: 18),
                   ),
                 ),
-              )
-            else
-              Column(
-                children: [
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: controller.stickers.length,
-                    itemBuilder: (context, index) {
-                      return _buildStickerConfigCard(index);
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  Obx(() {
-                    final allConfirmed = controller.stickers
-                        .every((sticker) => sticker.confirmed.value);
-                    return ElevatedButton(
-                      onPressed:
-                          allConfirmed ? controller.proceedWithOrder : null,
-                      child: const Text("Proceed with Order"),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.all(16),
-                        textStyle: const TextStyle(fontSize: 18),
-                      ),
-                    );
-                  }),
-                ],
-              ),
-          ],
+              ],
+            ),
+          ),
         );
-      }),
-    );
+      } else {
+        // There are stickers: show the upload images button and text at the top
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Upload as many images for stickers as you want.",
+                style: TextStyle(fontSize: 18),
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.upload_file),
+                label: const Text("Upload Images"),
+                onPressed: () => controller.uploadImages(),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.all(16),
+                  textStyle: const TextStyle(fontSize: 18),
+                ),
+              ),
+              const SizedBox(height: 20),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: controller.stickers.length,
+                itemBuilder: (context, index) {
+                  return _buildStickerConfigCard(index);
+                },
+              ),
+              const SizedBox(height: 20),
+              Obx(() {
+                final allConfirmed = controller.stickers
+                    .every((sticker) => sticker.confirmed.value);
+                return ElevatedButton(
+                  onPressed:
+                      allConfirmed ? controller.proceedToOrderSummary : null,
+                  child: const Text("Proceed with Order"),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.all(16),
+                    textStyle: const TextStyle(fontSize: 18),
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      }
+    });
   }
 
   Widget _buildStickerConfigCard(int index) {
@@ -472,19 +519,30 @@ class DashboardScreen extends GetView<DashboardController> {
             ExpansionTile(
               key: PageStorageKey('sticker_tile_$index'),
               title: Text("Sticker ${index + 1}"),
-              subtitle: Text("Quantity: ${sticker.quantity.value}"),
+              subtitle: Text(
+                  "Quantity: ${sticker.quantity.value} | Price: €${sticker.totalPrice.toStringAsFixed(2)}"),
               initiallyExpanded: sticker.isExpanded.value,
               onExpansionChanged: (expanded) {
                 sticker.isExpanded.value = expanded;
               },
               children: [
                 const SizedBox(height: 10),
-                _buildSizeSelection(sticker, index),
-                const SizedBox(height: 10),
-                _buildCustomSizeFields(sticker, index),
-                const SizedBox(height: 10),
-                _buildQuantitySelection(sticker, index),
-                const SizedBox(height: 10),
+                // Hide sections when confirmed
+                if (!sticker.confirmed.value)
+                  _buildSizeSelection(sticker, index),
+                if (!sticker.confirmed.value) const SizedBox(height: 10),
+                if (!sticker.confirmed.value)
+                  _buildCustomSizeFields(sticker, index),
+                if (!sticker.confirmed.value) const SizedBox(height: 10),
+                if (!sticker.confirmed.value)
+                  _buildQuantitySelection(sticker, index),
+                if (!sticker.confirmed.value) const SizedBox(height: 10),
+                if (!sticker.confirmed.value)
+                  Text(
+                    "Price: €${sticker.totalPrice.toStringAsFixed(2)}",
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 OverflowBar(
                   alignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -696,16 +754,21 @@ class DashboardScreen extends GetView<DashboardController> {
     );
   }
 
-  Widget _buildCalendarContent(bool isDarkMode) {
+  Widget _buildOrderTracking(bool isDarkMode) {
     final textColor = isDarkMode ? Colors.white : Colors.black;
+    final currentStep = controller.currentOrderStep.value;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: kSpacing),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: kSpacing),
           Row(
             children: [
-              Expanded(child: HeaderText("Order Tracking", color: textColor)),
+              Expanded(
+                child: HeaderText("Order Tracking", color: textColor),
+              ),
               IconButton(
                 onPressed: controller.onPressedCalendar,
                 icon: Icon(EvaIcons.calendarOutline, color: textColor),
@@ -719,7 +782,159 @@ class DashboardScreen extends GetView<DashboardController> {
             ],
           ),
           const SizedBox(height: kSpacing),
+          // Order Steps
+          _buildOrderSteps(isDarkMode, currentStep),
         ],
+      ),
+    );
+  }
+
+  Widget _buildOrderSteps(bool isDarkMode, int currentStep) {
+    final steps = [
+      {
+        'title': '1. Image upload',
+        'description':
+            'This is where you upload the files you want to be printed as stickers. As many as you want!',
+      },
+      {
+        'title': '2. Payment',
+        'description':
+            'Pay for your order. Within mere hours, your order will be printed!',
+      },
+      {
+        'title': '3. Printing start',
+        'description': 'Your order is being printed!',
+      },
+      {
+        'title': '4. Printing finish',
+        'description':
+            'Your order has been successfully printed and will be sent as soon as possible.',
+      },
+      {
+        'title': '5. Order shipped out',
+        'description': 'Your order has been shipped!',
+      },
+    ];
+
+    return Column(
+      children: List.generate(steps.length, (index) {
+        final isActive = index <= currentStep;
+        return Column(
+          children: [
+            Row(
+              children: [
+                Column(
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: isActive ? Colors.green : Colors.grey,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    if (index < steps.length - 1)
+                      Container(
+                        width: 2,
+                        height: 50,
+                        color: isActive ? Colors.green : Colors.grey,
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        steps[index]['title']!,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        steps[index]['description']!,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDarkMode ? Colors.white70 : Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _buildOrderSummary() {
+    final isDarkMode = controller.isDarkMode.value;
+    final totalPrice = controller.totalOrderPrice.value;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Order Summary'),
+        backgroundColor: isDarkMode ? Colors.black : Colors.white,
+        foregroundColor: isDarkMode ? Colors.white : Colors.black,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Obx(() {
+          return Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  itemCount: controller.stickers.length,
+                  itemBuilder: (context, index) {
+                    final sticker = controller.stickers[index];
+                    return Card(
+                      child: ListTile(
+                        leading: Image.memory(
+                          sticker.imageData.value,
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.cover,
+                        ),
+                        title: Text(
+                            'Sticker ${index + 1} - €${sticker.totalPrice.toStringAsFixed(2)}'),
+                        subtitle: Text(
+                            'Size: ${sticker.size.value}, Quantity: ${sticker.quantity.value}'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: () {
+                            controller.editStickerSettings(index);
+                            controller.showOrderSummary.value = false;
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Total Price: €${totalPrice.toStringAsFixed(2)}',
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: controller.initiatePayment,
+                child: const Text('Proceed to Payment'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.all(16),
+                  textStyle: const TextStyle(fontSize: 18),
+                ),
+              ),
+            ],
+          );
+        }),
       ),
     );
   }
