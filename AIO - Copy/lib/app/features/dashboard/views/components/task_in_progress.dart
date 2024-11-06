@@ -3,7 +3,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:daily_task/app/shared_components/card_task.dart';
-import 'package:daily_task/app/shared_components/task_progress.dart';
 
 class TaskInProgress extends StatelessWidget {
   final List<CardTaskData> data;

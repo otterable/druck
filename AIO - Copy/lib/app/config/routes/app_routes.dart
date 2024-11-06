@@ -15,3 +15,13 @@ class _Paths {
   // static const splash = '/splash';
   // static const product = '/product';
 }
+// app/config/routes/app_routes.dart
+
+part of 'app_pages.dart';
+
+abstract class Routes {
+  static const DASHBOARD = '/';
+  static const SUCCESS = '/success';
+  static const CANCEL = '/cancel';
+  // Add other route names here
+}
