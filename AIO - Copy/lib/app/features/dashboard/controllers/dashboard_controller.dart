@@ -8,13 +8,14 @@ import 'dart:typed_data';
 import 'package:daily_task/app/shared_components/task_progress.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 import 'redirect_helper.dart'; // Import the redirect helper
+// Conditional import for Stripe
+import 'stripe_platform_interface.dart';
 
 class DashboardController extends GetxController {
   final scafoldKey = GlobalKey<ScaffoldState>();
@@ -42,6 +43,7 @@ class DashboardController extends GetxController {
   String orderNumber = '';
 
   DashboardController() {
+    debugPrint("DashboardController initialized.");
     _initializeGoogleSignIn();
     _initializeStripe();
   }
@@ -50,7 +52,7 @@ class DashboardController extends GetxController {
     debugPrint("Initializing Google Sign-In...");
     _googleSignIn.onCurrentUserChanged.listen((account) {
       user.value = account;
-      debugPrint("User signed in: ${account?.displayName ?? "None"}");
+      debugPrint("User account changed: ${account?.displayName ?? "None"}");
       if (account != null) {
         userProfile.value = UserProfileData(
           image: account.photoUrl != null
@@ -59,25 +61,30 @@ class DashboardController extends GetxController {
           name: account.displayName ?? "User",
           jobDesk: account.email,
         );
+        debugPrint("User profile updated: ${userProfile.value?.name}");
       } else {
         userProfile.value = null;
+        debugPrint("User signed out.");
       }
     });
     await _googleSignIn.signInSilently();
+    debugPrint("Sign-in silently attempted.");
   }
 
   void _initializeStripe() {
-    // Initialize Stripe with your publishable key
-    Stripe.publishableKey =
-        'pk_live_51Lxm6sEgtx1au46GHhDtjk3JZ04OaA8p7T6xM4lQFLxfbPotRsuT4AhoM4WA0myCsirZeQN32vnUvUSmn1zVyD3m00docojbx7';
-    Stripe.merchantIdentifier = 'merchant.com.example'; // Update as needed
-    Stripe.urlScheme = 'flutterstripe'; // Update with your URL scheme if needed
+    if (!kIsWeb) {
+      debugPrint("Initializing Stripe...");
+      StripePlatformInterface.initialize();
+    } else {
+      debugPrint("Skipping Stripe initialization on Web platform.");
+    }
   }
 
   Future<void> signInWithGoogle() async {
     try {
       debugPrint("Attempting Google Sign-In...");
       await _googleSignIn.signIn();
+      debugPrint("Google Sign-In successful.");
     } catch (error) {
       debugPrint("Google Sign-In error: $error");
     }
@@ -85,10 +92,11 @@ class DashboardController extends GetxController {
 
   Future<void> signOutFromGoogle() async {
     try {
-      debugPrint("Attempting to sign out...");
+      debugPrint("Attempting to sign out from Google...");
       await _googleSignIn.disconnect();
       user.value = null;
       userProfile.value = null;
+      debugPrint("Google Sign-Out successful.");
     } catch (error) {
       debugPrint("Google Sign-Out error: $error");
     }
@@ -108,12 +116,15 @@ class DashboardController extends GetxController {
   void addStickerConfig(StickerConfig stickerConfig) {
     stickers.add(stickerConfig);
     debugPrint("Sticker added: ${stickerConfig.toString()}");
+    calculateTotalPrice();
   }
 
   void removeStickerConfig(int index) {
     if (index >= 0 && index < stickers.length) {
+      debugPrint("Removing sticker at index $index...");
       stickers.removeAt(index);
       debugPrint("Sticker at index $index removed.");
+      calculateTotalPrice();
     } else {
       debugPrint("Invalid index for sticker removal: $index");
     }
@@ -121,6 +132,7 @@ class DashboardController extends GetxController {
 
   void confirmStickerSettings(int index) {
     if (index >= 0 && index < stickers.length) {
+      debugPrint("Confirming sticker settings at index $index...");
       stickers[index].confirmed.value = true;
       debugPrint("Sticker settings confirmed for index $index");
       calculateTotalPrice();
@@ -131,6 +143,7 @@ class DashboardController extends GetxController {
 
   void editStickerSettings(int index) {
     if (index >= 0 && index < stickers.length) {
+      debugPrint("Editing sticker settings at index $index...");
       stickers[index].confirmed.value = false;
       showOrderSummary.value = false;
       debugPrint("Sticker settings set to editable for index $index");
@@ -140,66 +153,88 @@ class DashboardController extends GetxController {
   }
 
   void proceedToOrderSummary() {
+    debugPrint("Proceeding to order summary...");
     showOrderSummary.value = true;
     calculateTotalPrice();
   }
 
   void calculateTotalPrice() {
+    debugPrint("Calculating total order price...");
     double total = 0.0;
     for (var sticker in stickers) {
       total += sticker.totalPrice.value;
+      debugPrint(
+          "Added sticker price: €${sticker.totalPrice.value.toStringAsFixed(2)}");
     }
     totalOrderPrice.value = total;
+    debugPrint(
+        "Total order price: €${totalOrderPrice.value.toStringAsFixed(2)}");
   }
 
   void proceedWithOrder() {
-    debugPrint("Proceeding with order for ${stickers.length} stickers...");
-    for (var sticker in stickers) {
-      debugPrint("Sticker Config: ${sticker.toString()}");
+    debugPrint("Proceeding with order...");
+    if (stickers.isEmpty) {
+      debugPrint("No stickers to order.");
+      Get.snackbar(
+          'No Stickers', 'Please add stickers to proceed with the order.',
+          snackPosition: SnackPosition.BOTTOM);
+      return;
     }
-    // Update the current order step
-    currentOrderStep.value = 1; // Move to Payment step
-    // Proceed with order processing logic here
+
+    bool allConfirmed = stickers.every((sticker) => sticker.confirmed.value);
+    if (!allConfirmed) {
+      debugPrint("Not all stickers are confirmed.");
+      Get.snackbar('Unconfirmed Stickers',
+          'Please confirm all stickers before proceeding.',
+          snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+
+    proceedToOrderSummary();
+    debugPrint("All stickers confirmed. Moving to order summary.");
   }
 
   Future<void> initiatePayment() async {
-    // Implement payment with Stripe
     isLoading.value = true;
+    debugPrint("Initiating payment...");
 
     try {
       if (kIsWeb) {
-        // Web-specific code
+        debugPrint("Platform is Web. Creating Checkout Session...");
+
         // Create a Checkout Session on your backend
         final checkoutSessionData =
             await createCheckoutSession(totalOrderPrice.value);
+        debugPrint("Checkout Session Data: $checkoutSessionData");
 
-        // Redirect to Stripe Checkout
-        String checkoutUrl = checkoutSessionData['url'];
-        redirectToCheckout(checkoutUrl);
+        if (checkoutSessionData.containsKey('url')) {
+          // Redirect to Stripe Checkout
+          String checkoutUrl = checkoutSessionData['url'];
+          debugPrint("Redirecting to Checkout URL: $checkoutUrl");
+          redirectToCheckout(checkoutUrl);
+        } else {
+          debugPrint("Checkout Session Data does not contain 'url' key.");
+          throw Exception("Invalid Checkout Session Data");
+        }
       } else {
+        debugPrint("Platform is Mobile. Creating Payment Intent...");
+
         // Mobile platforms (iOS and Android)
-        // Create a Payment Intent on your backend
         final paymentIntentData =
             await createPaymentIntent(totalOrderPrice.value);
+        debugPrint("Payment Intent Data: $paymentIntentData");
 
         // Initialize payment sheet
-        await Stripe.instance.initPaymentSheet(
-          paymentSheetParameters: SetupPaymentSheetParameters(
-            paymentIntentClientSecret: paymentIntentData['client_secret'],
-            merchantDisplayName: 'Your Merchant Name',
-            style: isDarkMode.value ? ThemeMode.dark : ThemeMode.light,
-            applePay: const PaymentSheetApplePay(
-              merchantCountryCode: 'US', // Replace with your country code
-            ),
-            googlePay: const PaymentSheetGooglePay(
-              merchantCountryCode: 'US', // Replace with your country code
-              testEnv: false, // Set to true for testing
-            ),
-          ),
+        await StripePlatformInterface.initPaymentSheet(
+          paymentIntentClientSecret: paymentIntentData['client_secret'],
+          merchantDisplayName: 'Your Merchant Name',
+          isDarkMode: isDarkMode.value,
         );
+        debugPrint("Payment sheet initialized.");
 
         // Display payment sheet
-        await Stripe.instance.presentPaymentSheet();
+        await StripePlatformInterface.presentPaymentSheet();
+        debugPrint("Payment sheet presented.");
 
         // Payment successful
         isLoading.value = false;
@@ -212,21 +247,24 @@ class DashboardController extends GetxController {
         stickers.clear();
         showOrderSummary.value = false;
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       isLoading.value = false;
+      debugPrint("Payment Error: $e");
+      debugPrint("Stack Trace: $stackTrace");
       if (e is StripeException) {
-        Get.snackbar('Payment Cancelled', e.error.message ?? '',
+        Get.snackbar('Payment Cancelled', e.message,
             snackPosition: SnackPosition.BOTTOM);
       } else {
-        Get.snackbar('Payment Failed', 'Please try again.',
+        Get.snackbar('Payment Failed', e.toString(),
             snackPosition: SnackPosition.BOTTOM);
       }
     }
   }
 
   Future<Map<String, dynamic>> createPaymentIntent(double amount) async {
-    // Replace with your own backend URL
-    const String backendUrl = 'https://your-backend.com/create-payment-intent';
+    // Replace with your actual backend URL and port
+    const String backendUrl =
+        'http://localhost:<your_backend_port>/create-payment-intent';
 
     try {
       Map<String, dynamic> body = {
@@ -235,6 +273,8 @@ class DashboardController extends GetxController {
         'payment_method_types': ['card'],
       };
 
+      debugPrint("Sending request to create Payment Intent with body: $body");
+
       var response = await http.post(
         Uri.parse(backendUrl),
         body: jsonEncode(body),
@@ -244,21 +284,29 @@ class DashboardController extends GetxController {
         },
       );
 
+      debugPrint("Received response with status code: ${response.statusCode}");
+      debugPrint("Response body: ${response.body}");
+
       if (response.statusCode == 200) {
         var jsonResponse = jsonDecode(response.body);
+        debugPrint("Payment Intent created successfully.");
         return jsonResponse;
       } else {
+        debugPrint(
+            "Failed to create Payment Intent. Status code: ${response.statusCode}");
         throw Exception('Failed to create Payment Intent');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint("Error creating Payment Intent: $e");
+      debugPrint("Stack Trace: $stackTrace");
       throw Exception('Error creating Payment Intent: $e');
     }
   }
 
   Future<Map<String, dynamic>> createCheckoutSession(double amount) async {
-    // Replace with your own backend URL
+    // Replace with your actual backend URL and port
     const String backendUrl =
-        'https://your-backend.com/create-checkout-session';
+        'http://localhost:<your_backend_port>/create-checkout-session';
 
     try {
       Map<String, dynamic> body = {
@@ -266,6 +314,8 @@ class DashboardController extends GetxController {
         'currency': 'eur',
       };
 
+      debugPrint("Sending request to create Checkout Session with body: $body");
+
       var response = await http.post(
         Uri.parse(backendUrl),
         body: jsonEncode(body),
@@ -275,13 +325,21 @@ class DashboardController extends GetxController {
         },
       );
 
+      debugPrint("Received response with status code: ${response.statusCode}");
+      debugPrint("Response body: ${response.body}");
+
       if (response.statusCode == 200) {
         var jsonResponse = jsonDecode(response.body);
+        debugPrint("Checkout Session created successfully.");
         return jsonResponse;
       } else {
+        debugPrint(
+            "Failed to create Checkout Session. Status code: ${response.statusCode}");
         throw Exception('Failed to create Checkout Session');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint("Error creating Checkout Session: $e");
+      debugPrint("Stack Trace: $stackTrace");
       throw Exception('Error creating Checkout Session: $e');
     }
   }
@@ -289,9 +347,10 @@ class DashboardController extends GetxController {
   void generateOrderNumber() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     Random rnd = Random();
-    orderNumber = String.fromCharCodes(Iterable.generate(
-        10, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))));
-    debugPrint('Order Number: $orderNumber');
+    orderNumber = String.fromCharCodes(
+      Iterable.generate(10, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))),
+    );
+    debugPrint('Order Number generated: $orderNumber');
     // Store the order number as needed
   }
 
@@ -301,6 +360,7 @@ class DashboardController extends GetxController {
     try {
       final List<XFile>? images = await _picker.pickMultiImage();
       if (images != null && images.isNotEmpty) {
+        debugPrint("${images.length} image(s) selected.");
         for (var image in images) {
           Uint8List imageData = await image.readAsBytes();
           final stickerConfig = StickerConfig(
@@ -310,7 +370,7 @@ class DashboardController extends GetxController {
             confirmed: false,
           );
           addStickerConfig(stickerConfig);
-          debugPrint("Image selected: ${image.path}");
+          debugPrint("Image added to stickers: ${image.path}");
         }
         currentOrderStep.value = 0; // Reset to Image upload step
       } else {
@@ -323,6 +383,8 @@ class DashboardController extends GetxController {
 
   void setSelectedFormatForSticker(int index, String format) {
     if (index >= 0 && index < stickers.length) {
+      debugPrint(
+          "Setting selected format for sticker at index $index to $format...");
       final sticker = stickers[index];
       sticker.size.value = format;
       final dimensions = format.replaceAll('cm', '').split('x');
@@ -334,26 +396,32 @@ class DashboardController extends GetxController {
       heightErrorText.value = '';
       sticker.calculatePrice(); // Recalculate price
       debugPrint("Sticker at index $index size set to: $format");
+    } else {
+      debugPrint("Invalid index for setting sticker format: $index");
     }
   }
 
   void setCustomDimensionsForSticker(int index, double width, double height) {
     if (index >= 0 && index < stickers.length) {
+      debugPrint("Setting custom dimensions for sticker at index $index...");
       final sticker = stickers[index];
 
       // Apply constraints
       width = width.clamp(0, 40);
       height = height.clamp(0, 40);
+      debugPrint("Clamped dimensions: width=$width, height=$height");
 
       if (width > 28 && height > 28) {
         if (width > height) {
           width = 28;
           widthErrorText.value =
               'Max combined size exceeded. Width set to 28cm.';
+          debugPrint(widthErrorText.value);
         } else {
           height = 28;
           heightErrorText.value =
               'Max combined size exceeded. Height set to 28cm.';
+          debugPrint(heightErrorText.value);
         }
       } else {
         widthErrorText.value = '';
@@ -367,26 +435,50 @@ class DashboardController extends GetxController {
       sticker.calculatePrice(); // Recalculate price
       debugPrint(
           "Sticker at index $index custom dimensions set to: ${sticker.size.value}");
+    } else {
+      debugPrint("Invalid index for setting custom dimensions: $index");
     }
   }
 
   void setQuantityForSticker(int index, int quantity) {
     if (index >= 0 && index < stickers.length) {
+      debugPrint(
+          "Setting quantity for sticker at index $index to $quantity...");
       final sticker = stickers[index];
       sticker.quantity.value = quantity;
       sticker.calculatePrice(); // Recalculate price
       debugPrint("Sticker at index $index quantity set to: $quantity");
+    } else {
+      debugPrint("Invalid index for setting sticker quantity: $index");
     }
   }
 
-  void onPressedProfil() {}
-  void onSelectedMainMenu(int index, SelectionButtonData value) {}
-  void onPressedTask(int index, ListTaskAssignedData data) {}
-  void onPressedAssignTask(int index, ListTaskAssignedData data) {}
-  void onPressedMemberTask(int index, ListTaskAssignedData data) {}
-  void onPressedCalendar() {}
+  void onPressedProfil() {
+    debugPrint("Profile button pressed.");
+  }
+
+  void onSelectedMainMenu(int index, SelectionButtonData value) {
+    debugPrint("Main menu item selected: index=$index, value=$value");
+  }
+
+  void onPressedTask(int index, ListTaskAssignedData data) {
+    debugPrint("Task pressed: index=$index, data=$data");
+  }
+
+  void onPressedAssignTask(int index, ListTaskAssignedData data) {
+    debugPrint("Assign Task pressed: index=$index, data=$data");
+  }
+
+  void onPressedMemberTask(int index, ListTaskAssignedData data) {
+    debugPrint("Member Task pressed: index=$index, data=$data");
+  }
+
+  void onPressedCalendar() {
+    debugPrint("Calendar button pressed.");
+  }
 
   void openDrawer() {
+    debugPrint("Opening drawer...");
     scafoldKey.currentState?.openDrawer();
   }
 }
@@ -421,8 +513,8 @@ class StickerConfig extends GetxController {
   }
 
   void calculatePrice() {
+    debugPrint("Calculating price for sticker...");
     // Implement the price calculation based on the provided table
-    // First, create a map of size to price per unit area
     final priceTable = {
       '2x2': 0.03,
       '3x3': 0.06,
@@ -448,13 +540,17 @@ class StickerConfig extends GetxController {
 
     if (priceTable.containsKey(key)) {
       unitPrice = priceTable[key]!;
+      debugPrint("Price from price table: €$unitPrice");
     } else {
       // Calculate price based on area and a base rate
       double area = customWidth.value * customHeight.value;
       unitPrice = (area * 0.0035) * 2; // Applying profit margin
+      debugPrint("Calculated price based on area: €$unitPrice");
     }
 
     totalPrice.value = unitPrice * quantity.value;
+    debugPrint(
+        "Total price for sticker: €${totalPrice.value.toStringAsFixed(2)}");
   }
 
   @override
