@@ -1,6 +1,6 @@
-
-// My lib/app/shared_components/task_progress.dart
+// My lib/app/features/shared_components/task_progress.dart
 // If this file is part of the problem, provide me a full update to the code, without omitting a single part. Include these note lines in the code as well, please. Otherwise do not update.
+
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 

@@ -51,7 +51,8 @@ class DashboardScreen extends GetWidget<DashboardController> {
                             ? _buildPrintSection()
                             : SingleChildScrollView(
                                 child: _buildTaskContent(
-                                  onPressedMenu: () => controller.openDrawer(),
+                                  onPressedMenu: () =>
+                                      Scaffold.of(context).openDrawer(),
                                   isDarkMode: isDarkMode,
                                 ),
                               ),
@@ -77,7 +78,7 @@ class DashboardScreen extends GetWidget<DashboardController> {
                                       controller: ScrollController(),
                                       child: _buildTaskContent(
                                         onPressedMenu: () =>
-                                            controller.openDrawer(),
+                                            Scaffold.of(context).openDrawer(),
                                         isDarkMode: isDarkMode,
                                       ),
                                     ),
@@ -149,6 +150,30 @@ class DashboardScreen extends GetWidget<DashboardController> {
         ),
       );
     });
+  }
+
+  Widget _buildImageBanner() {
+    // Placeholder implementation for _buildImageBanner
+    return Container(
+      height: 200,
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage('assets/images/banner.png'),
+          fit: BoxFit.cover,
+        ),
+      ),
+      child: const Center(
+        child: Text(
+          'Welcome to Your Dashboard',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildSidebar(BuildContext context, bool isDarkMode) {
@@ -261,7 +286,7 @@ class DashboardScreen extends GetWidget<DashboardController> {
 
         const Divider(height: 20, thickness: 1),
 
-        // Section with Icons and Descriptions
+        // Features Section
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
           child: Column(
@@ -403,19 +428,6 @@ class DashboardScreen extends GetWidget<DashboardController> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildImageBanner() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Center(
-        child: Image.asset(
-          'assets/images/banner.png',
-          width: double.infinity,
-          fit: BoxFit.cover,
-        ),
-      ),
     );
   }
 

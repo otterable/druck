@@ -4,12 +4,14 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_web_plugins/flutter_web_plugins.dart'; // Import this
 import 'package:get/get.dart';
 
 import 'app/config/routes/app_pages.dart';
 import 'app/config/themes/app_theme.dart';
 
 void main() {
+  setUrlStrategy(PathUrlStrategy()); // Use path-based URL strategy
   runApp(const MyApp());
 }
 
@@ -23,6 +25,7 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.basic,
       initialRoute: AppPages.initial,
       getPages: AppPages.routes,
+      unknownRoute: AppPages.unknownRoute, // Adding unknownRoute here
       scrollBehavior: CustomScrollBehaviour(),
       debugShowCheckedModeBanner: false,
     );

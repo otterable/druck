@@ -1,18 +1,18 @@
-// My lib/app/dashboard_controller.dart
+// app/features/dashboard/controllers/dashboard_controller.dart
 // Do not remove this comment text when giving me the new code.
 
 import 'dart:convert';
 import 'dart:html' as html;
 import 'dart:math';
-import 'dart:typed_data';
 
-import 'package:daily_task/app/shared_components/task_progress.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+
+import '../../../shared_components/task_progress.dart';
 
 class DashboardController extends GetxController {
   final scafoldKey = GlobalKey<ScaffoldState>();
@@ -27,15 +27,14 @@ class DashboardController extends GetxController {
   RxBool isDarkMode = false.obs;
   RxBool isPrintMode = false.obs;
   RxList<StickerConfig> stickers = <StickerConfig>[].obs;
-
   RxString widthErrorText = ''.obs;
   RxString heightErrorText = ''.obs;
-
   RxInt currentOrderStep = 0.obs;
   RxBool showOrderSummary = false.obs;
   RxDouble totalOrderPrice = 0.0.obs;
   RxBool isLoading = false.obs;
-
+  RxString selectedAddress = ''.obs;
+  DateTime orderCreatedTime = DateTime.now();
   String orderNumber = '';
 
   DashboardController() {
@@ -48,7 +47,6 @@ class DashboardController extends GetxController {
     debugPrint("Initializing Google Sign-In...");
     _googleSignIn.onCurrentUserChanged.listen((account) {
       user.value = account;
-      debugPrint("User account changed: ${account?.displayName ?? "None"}");
       if (account != null) {
         userProfile.value = UserProfileData(
           image: account.photoUrl != null
@@ -57,14 +55,11 @@ class DashboardController extends GetxController {
           name: account.displayName ?? "User",
           jobDesk: account.email,
         );
-        debugPrint("User profile updated: ${userProfile.value?.name}");
       } else {
         userProfile.value = null;
-        debugPrint("User signed out.");
       }
     });
     await _googleSignIn.signInSilently();
-    debugPrint("Sign-in silently attempted.");
   }
 
   void _initializeStripe() {
@@ -109,83 +104,41 @@ class DashboardController extends GetxController {
 
   void addStickerConfig(StickerConfig stickerConfig) {
     stickers.add(stickerConfig);
-    debugPrint("Sticker added: ${stickerConfig.toString()}");
     calculateTotalPrice();
   }
 
   void removeStickerConfig(int index) {
     if (index >= 0 && index < stickers.length) {
-      debugPrint("Removing sticker at index $index...");
       stickers.removeAt(index);
-      debugPrint("Sticker at index $index removed.");
       calculateTotalPrice();
-    } else {
-      debugPrint("Invalid index for sticker removal: $index");
-    }
-  }
-
-  void confirmStickerSettings(int index) {
-    if (index >= 0 && index < stickers.length) {
-      debugPrint("Confirming sticker settings at index $index...");
-      stickers[index].confirmed.value = true;
-      debugPrint("Sticker settings confirmed for index $index");
-      calculateTotalPrice();
-    } else {
-      debugPrint("Invalid index for confirming sticker settings: $index");
     }
   }
 
   void editStickerSettings(int index) {
     if (index >= 0 && index < stickers.length) {
-      debugPrint("Editing sticker settings at index $index...");
       stickers[index].confirmed.value = false;
       showOrderSummary.value = false;
-      debugPrint("Sticker settings set to editable for index $index");
-    } else {
-      debugPrint("Invalid index for editing sticker settings: $index");
     }
   }
 
-  void proceedToOrderSummary() {
-    debugPrint("Proceeding to order summary...");
-    showOrderSummary.value = true;
-    calculateTotalPrice();
+  void confirmStickerSettings(int index) {
+    if (index >= 0 && index < stickers.length) {
+      stickers[index].confirmed.value = true;
+      calculateTotalPrice();
+    }
   }
 
   void calculateTotalPrice() {
-    debugPrint("Calculating total order price...");
     double total = 0.0;
     for (var sticker in stickers) {
       total += sticker.totalPrice.value;
-      debugPrint(
-          "Added sticker price: €${sticker.totalPrice.value.toStringAsFixed(2)}");
     }
     totalOrderPrice.value = total;
-    debugPrint(
-        "Total order price: €${totalOrderPrice.value.toStringAsFixed(2)}");
   }
 
-  void proceedWithOrder() {
-    debugPrint("Proceeding with order...");
-    if (stickers.isEmpty) {
-      debugPrint("No stickers to order.");
-      Get.snackbar(
-          'No Stickers', 'Please add stickers to proceed with the order.',
-          snackPosition: SnackPosition.BOTTOM);
-      return;
-    }
-
-    bool allConfirmed = stickers.every((sticker) => sticker.confirmed.value);
-    if (!allConfirmed) {
-      debugPrint("Not all stickers are confirmed.");
-      Get.snackbar('Unconfirmed Stickers',
-          'Please confirm all stickers before proceeding.',
-          snackPosition: SnackPosition.BOTTOM);
-      return;
-    }
-
-    proceedToOrderSummary();
-    debugPrint("All stickers confirmed. Moving to order summary.");
+  void proceedToOrderSummary() {
+    showOrderSummary.value = true;
+    calculateTotalPrice();
   }
 
   Future<void> initiatePayment() async {
@@ -193,7 +146,7 @@ class DashboardController extends GetxController {
     debugPrint("Initiating payment...");
 
     try {
-      final List<Map<String, dynamic>> lineItems = stickers.map((sticker) {
+      final List<Map<String, Object>> lineItems = stickers.map((sticker) {
         return {
           "name": "Sticker ${sticker.size.value}",
           "amount": (sticker.totalPrice.value * 100).toInt(),
@@ -202,19 +155,40 @@ class DashboardController extends GetxController {
       }).toList();
 
       final url = Uri.parse('http://localhost:4242/create-checkout-session');
-      final response = await http.post(url,
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode({"items": lineItems}));
+      debugPrint("Attempting to post to: $url with data: ${jsonEncode({
+            "items": lineItems,
+            "address": selectedAddress.value,
+          })}");
+
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(<String, Object>{
+          "items": lineItems,
+          "address": selectedAddress.value,
+        }),
+      );
+
+      debugPrint("Response status code: ${response.statusCode}");
+      debugPrint("Response headers: ${response.headers}");
+      debugPrint("Response body: ${response.body}");
 
       if (response.statusCode == 200) {
         final sessionId = jsonDecode(response.body)['id'];
+        debugPrint(
+            "Stripe session created successfully. Session ID: $sessionId");
         redirectToCheckout(sessionId);
       } else {
-        debugPrint("Failed to create checkout session: ${response.body}");
+        debugPrint(
+            "Failed to create checkout session. Status code: ${response.statusCode}");
+        Get.snackbar('Payment Error',
+            'Failed to create checkout session. Please try again.',
+            snackPosition: SnackPosition.BOTTOM);
       }
     } catch (e) {
-      debugPrint("Payment Error: $e");
-      Get.snackbar('Payment Failed', e.toString(),
+      debugPrint("Payment Error: ${e.toString()}");
+      Get.snackbar(
+          'Payment Error', 'An error occurred during payment: ${e.toString()}',
           snackPosition: SnackPosition.BOTTOM);
     } finally {
       isLoading.value = false;
@@ -223,16 +197,22 @@ class DashboardController extends GetxController {
 
   void redirectToCheckout(String sessionId) {
     if (kIsWeb) {
-      final String redirectToCheckoutJs = '''
-        var stripe = Stripe('pk_test_your_publishable_key');
-        stripe.redirectToCheckout({
-          sessionId: '$sessionId'
-        }).then(function (result) {
-          if (result.error) {
-            console.error(result.error.message);
-          }
-        });
-      ''';
+      const String stripePublishableKey = kReleaseMode
+          ? 'pk_live_51Lxm6sEgtx1au46GHhDtjk3JZ04OaA8p7T6xM4lQFLxfbPotRsuT4AhoM4WA0myCsirZeQN32vnUvUSmn1zVyD3m00docojbx7'
+          : 'pk_test_51Lxm6sEgtx1au46GFqvv2vkvZM9eB92E5WBzrG1DPEJOW1w6mPJolzlmnG0qNNRF3hh7WQaZAHhz3lYSQW6Pql4n00eb4DuvxX';
+
+      final redirectToCheckoutJs = '''
+      var stripe = Stripe('$stripePublishableKey');
+      stripe.redirectToCheckout({
+        sessionId: '$sessionId'
+      }).then(function (result) {
+        if (result.error) {
+          console.error("Stripe redirect error:", result.error.message);
+        } else {
+          window.location.href = "/success";
+        }
+      });
+    ''';
       executeJs(redirectToCheckoutJs);
     }
   }
@@ -283,10 +263,13 @@ class DashboardController extends GetxController {
     }
   }
 
+  void onPressedCalendar() {
+    debugPrint("Calendar button pressed.");
+    // Implement calendar-related functionality here.
+  }
+
   void setSelectedFormatForSticker(int index, String format) {
     if (index >= 0 && index < stickers.length) {
-      debugPrint(
-          "Setting selected format for sticker at index $index to $format...");
       final sticker = stickers[index];
       sticker.size.value = format;
       final dimensions = format.replaceAll('cm', '').split('x');
@@ -297,90 +280,82 @@ class DashboardController extends GetxController {
       widthErrorText.value = '';
       heightErrorText.value = '';
       sticker.calculatePrice();
-      debugPrint("Sticker at index $index size set to: $format");
-    } else {
-      debugPrint("Invalid index for setting sticker format: $index");
     }
   }
 
   void setCustomDimensionsForSticker(int index, double width, double height) {
     if (index >= 0 && index < stickers.length) {
-      debugPrint("Setting custom dimensions for sticker at index $index...");
       final sticker = stickers[index];
-
       width = width.clamp(0, 40);
       height = height.clamp(0, 40);
-      debugPrint("Clamped dimensions: width=$width, height=$height");
-
       if (width > 28 && height > 28) {
         if (width > height) {
           width = 28;
-          widthErrorText.value =
-              'Max combined size exceeded. Width set to 28cm.';
-          debugPrint(widthErrorText.value);
+          widthErrorText.value = 'Max size exceeded. Width set to 28cm.';
         } else {
           height = 28;
-          heightErrorText.value =
-              'Max combined size exceeded. Height set to 28cm.';
-          debugPrint(heightErrorText.value);
+          heightErrorText.value = 'Max size exceeded. Height set to 28cm.';
         }
       } else {
         widthErrorText.value = '';
         heightErrorText.value = '';
       }
-
       sticker.customWidth.value = width;
       sticker.customHeight.value = height;
       sticker.size.value =
           '${width.toStringAsFixed(1)}x${height.toStringAsFixed(1)}cm';
       sticker.calculatePrice();
-      debugPrint(
-          "Sticker at index $index custom dimensions set to: ${sticker.size.value}");
-    } else {
-      debugPrint("Invalid index for setting custom dimensions: $index");
     }
   }
 
   void setQuantityForSticker(int index, int quantity) {
     if (index >= 0 && index < stickers.length) {
-      debugPrint(
-          "Setting quantity for sticker at index $index to $quantity...");
       final sticker = stickers[index];
       sticker.quantity.value = quantity;
       sticker.calculatePrice();
-      debugPrint("Sticker at index $index quantity set to: $quantity");
-    } else {
-      debugPrint("Invalid index for setting sticker quantity: $index");
     }
   }
 
-  void onPressedProfil() {
-    debugPrint("Profile button pressed.");
+  void showSuccessPage(String sessionId) {
+    Get.defaultDialog(
+      title: "Success! Your order number $orderNumber has been received.",
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("Items ordered:"),
+          ...stickers.map((sticker) => ListTile(
+                title: Text(
+                    "Size: ${sticker.size.value}, Quantity: ${sticker.quantity.value}"),
+                subtitle: Text(
+                    "Price: €${sticker.totalPrice.value.toStringAsFixed(2)}"),
+                leading: Image.memory(sticker.imageData.value,
+                    width: 50, height: 50),
+              )),
+          Text("Order will be shipped to: $selectedAddress"),
+        ],
+      ),
+      actions: [
+        ElevatedButton(
+          onPressed: () {
+            if (DateTime.now()
+                .isBefore(orderCreatedTime.add(const Duration(minutes: 1)))) {
+              cancelOrder();
+              Get.snackbar("Order Cancelled",
+                  "Your order has been cancelled successfully.");
+            } else {
+              Get.snackbar("Error", "Cancellation period has expired.");
+            }
+          },
+          child: const Text("Cancel Order"),
+        ),
+      ],
+    );
   }
 
-  void onSelectedMainMenu(int index, SelectionButtonData value) {
-    debugPrint("Main menu item selected: index=$index, value=$value");
-  }
-
-  void onPressedTask(int index, ListTaskAssignedData data) {
-    debugPrint("Task pressed: index=$index, data=$data");
-  }
-
-  void onPressedAssignTask(int index, ListTaskAssignedData data) {
-    debugPrint("Assign Task pressed: index=$index, data=$data");
-  }
-
-  void onPressedMemberTask(int index, ListTaskAssignedData data) {
-    debugPrint("Member Task pressed: index=$index, data=$data");
-  }
-
-  void onPressedCalendar() {
-    debugPrint("Calendar button pressed.");
-  }
-
-  void openDrawer() {
-    debugPrint("Opening drawer...");
-    scafoldKey.currentState?.openDrawer();
+  void cancelOrder() {
+    stickers.clear();
+    totalOrderPrice.value = 0.0;
+    selectedAddress.value = '';
   }
 }
 
@@ -414,7 +389,6 @@ class StickerConfig extends GetxController {
   }
 
   void calculatePrice() {
-    debugPrint("Calculating price for sticker...");
     final priceTable = {
       '2x2': 0.03,
       '3x3': 0.06,
@@ -440,21 +414,12 @@ class StickerConfig extends GetxController {
 
     if (priceTable.containsKey(key)) {
       unitPrice = priceTable[key]!;
-      debugPrint("Price from price table: €$unitPrice");
     } else {
       double area = customWidth.value * customHeight.value;
       unitPrice = (area * 0.0035) * 2;
-      debugPrint("Calculated price based on area: €$unitPrice");
     }
 
     totalPrice.value = unitPrice * quantity.value;
-    debugPrint(
-        "Total price for sticker: €${totalPrice.value.toStringAsFixed(2)}");
-  }
-
-  @override
-  String toString() {
-    return 'StickerConfig(size: ${size.value}, quantity: ${quantity.value}, confirmed: ${confirmed.value}, price: €${totalPrice.value.toStringAsFixed(2)})';
   }
 }
 
@@ -469,9 +434,3 @@ class UserProfileData {
     required this.jobDesk,
   });
 }
-
-class SelectionButtonData {}
-
-class ListTaskAssignedData {}
-
-class ListTaskDateData {}
