@@ -17,7 +17,8 @@ import '../../../shared_components/task_progress.dart';
 class DashboardController extends GetxController {
   final scaffoldKey = GlobalKey<ScaffoldState>();
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-      clientId: 'YOUR_GOOGLE_CLIENT_ID'); // Replace with your actual client ID
+      clientId:
+          '545461705793-3v0101rqbcp0hqkeiqt0ohca9me9d0b3.apps.googleusercontent.com');
 
   final Rx<UserProfileData?> userProfile = Rx<UserProfileData?>(null);
   final dataTask = const TaskProgressData(totalTask: 5, totalCompleted: 1);
@@ -255,8 +256,8 @@ class DashboardController extends GetxController {
   void redirectToCheckout(String sessionId) {
     if (kIsWeb) {
       const String stripePublishableKey = kReleaseMode
-          ? 'YOUR_LIVE_STRIPE_PUBLISHABLE_KEY'
-          : 'YOUR_TEST_STRIPE_PUBLISHABLE_KEY';
+          ? 'pk_live_51Lxm6sEgtx1au46GHhDtjk3JZ04OaA8p7T6xM4lQFLxfbPotRsuT4AhoM4WA0myCsirZeQN32vnUvUSmn1zVyD3m00docojbx7'
+          : 'pk_test_51Lxm6sEgtx1au46GFqvv2vkvZM9eB92E5WBzrG1DPEJOW1w6mPJolzlmnG0qNNRF3hh7WQaZAHhz3lYSQW6Pql4n00eb4DuvxX';
 
       final redirectToCheckoutJs = '''
       var stripe = Stripe('$stripePublishableKey');
