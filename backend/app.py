@@ -1,12 +1,15 @@
 # app.py
 # Do not remove this comment text when giving me the new code.
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file, make_response
 from flask_cors import CORS
 import stripe
 import os
 import logging
 from dotenv import load_dotenv
+from datetime import datetime
+import json
+import base64
 
 # Load environment variables from a .env file
 load_dotenv()
@@ -14,16 +17,23 @@ load_dotenv()
 app = Flask(__name__)
 
 # Enable CORS for all routes (for development purposes)
-CORS(app, resources={r"/create-checkout-session": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Set your Stripe secret key from environment variables
-if os.getenv("FLASK_ENV") == "production":
-    stripe.api_key = os.getenv('STRIPE_LIVE_SECRET_KEY')
-else:
-    stripe.api_key = os.getenv('STRIPE_TEST_SECRET_KEY')
+stripe.api_key = os.getenv('STRIPE_LIVE_SECRET_KEY') if os.getenv(
+    "FLASK_ENV") == "production" else os.getenv('STRIPE_TEST_SECRET_KEY')
 
 # Set up logging configuration to display debug messages
 logging.basicConfig(level=logging.DEBUG)
+
+# Placeholder for in-memory orders database; replace with persistent DB for production
+orders_db = {}
+
+# Directory to store uploaded images
+IMAGES_DIR = './images'
+if not os.path.exists(IMAGES_DIR):
+    os.makedirs(IMAGES_DIR)
+
 
 @app.route('/create-checkout-session', methods=['POST'])
 def create_checkout_session():
@@ -35,7 +45,10 @@ def create_checkout_session():
 
         items = data['items']
         address = data.get('address', {})
+        user_email = data.get('userEmail', 'unknown_user')
+        stickers = data.get('stickers', [])
         order_number = os.urandom(5).hex().upper()  # Generate unique order number
+        order_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         line_items = []
 
         for item in items:
@@ -52,7 +65,7 @@ def create_checkout_session():
                 'quantity': quantity,
             })
 
-        # Add a shipping fee of 4.90 EUR
+        # Add a shipping fee of 4.90 EUR (490 cents)
         line_items.append({
             'price_data': {
                 'currency': 'eur',
@@ -75,11 +88,101 @@ def create_checkout_session():
             cancel_url='http://localhost:56640/cancel',
         )
 
-        logging.debug("Stripe session created successfully: %s", session)
-        return jsonify({'id': session.id, 'order_number': order_number, 'address': address, 'items': items})
+        # Calculate total price in cents
+        total_price_cents = sum(
+            item['amount'] * item.get('quantity', 1) for item in items) + 490  # Total with shipping
+
+        # Save images to the server and replace image data with image IDs
+        for idx, sticker in enumerate(stickers):
+            image_data_base64 = sticker.get('imageData', '')
+            if image_data_base64:
+                image_data = base64.b64decode(image_data_base64)
+                image_id = f"{order_number}_{idx}"
+                image_path = os.path.join(IMAGES_DIR, f"{image_id}.png")
+                with open(image_path, 'wb') as f:
+                    f.write(image_data)
+                sticker['image_id'] = image_id
+                logging.debug("Saved image for sticker %s at %s", image_id, image_path)
+                # Remove 'imageData' to reduce storage size
+                sticker.pop('imageData', None)
+            else:
+                logging.warning("No image data for sticker index %s", idx)
+
+        # Save order to in-memory database
+        orders_db[order_number] = {
+            'order_number': order_number,
+            'user_email': user_email,
+            'order_date': order_date,
+            'total_price': total_price_cents,  # Store in cents
+            'address': address,
+            'items': stickers,  # Store stickers with image IDs
+            'status': 1,  # Default to "printingStart" status
+            'allow_edit': True,
+        }
+
+        logging.debug("Order saved: order number %s by user %s", order_number, user_email)
+
+        return jsonify({'id': session.id, 'order_number': order_number, 'address': address, 'items': stickers})
     except Exception as e:
         logging.error("Error in create_checkout_session: %s", str(e), exc_info=True)
         return jsonify({'error': str(e)}), 400
+
+
+@app.route('/orders', methods=['GET'])
+def get_orders():
+    user_email = request.args.get('user_email')
+    if user_email:
+        user_orders = [order for order in orders_db.values() if order['user_email'] == user_email]
+        logging.debug("Orders retrieved for user: %s", user_email)
+        return jsonify(user_orders)
+    else:
+        logging.error("User email not provided for orders retrieval.")
+        return jsonify({'error': 'User email not provided'}), 400
+
+
+@app.route('/order/<order_number>', methods=['GET'])
+def get_order(order_number):
+    order = orders_db.get(order_number)
+    if order:
+        logging.debug("Order retrieved for order number: %s", order_number)
+        return jsonify(order)
+    else:
+        logging.error("Order not found for order number: %s", order_number)
+        return jsonify({'error': 'Order not found'}), 404
+
+
+@app.route('/download-image/<image_id>', methods=['GET'])
+def download_image(image_id):
+    try:
+        image_path = os.path.join(IMAGES_DIR, f'{image_id}.png')
+        if os.path.exists(image_path):
+            logging.debug("Image found for download: %s", image_id)
+            return send_file(image_path, mimetype='image/png')
+        else:
+            logging.error("Image not found for download: %s", image_id)
+            return jsonify({'error': 'Image not found'}), 404
+    except Exception as e:
+        logging.error("Error in download_image: %s", str(e), exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/update-order-status', methods=['POST'])
+def update_order_status():
+    try:
+        data = request.get_json()
+        order_number = data['order_number']
+        new_status = data['status']
+        if order_number in orders_db:
+            orders_db[order_number]['status'] = new_status
+            logging.debug("Order status updated for order number: %s to status %s", order_number, new_status)
+            return jsonify({'success': True})
+        else:
+            logging.error("Order not found for updating status: %s", order_number)
+            return jsonify({'error': 'Order not found'}), 404
+    except Exception as e:
+        logging.error("Error in update_order_status: %s", str(e), exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(port=4242)

@@ -15,11 +15,9 @@ import 'package:image_picker/image_picker.dart';
 import '../../../shared_components/task_progress.dart';
 
 class DashboardController extends GetxController {
-  final scafoldKey = GlobalKey<ScaffoldState>();
+  final scaffoldKey = GlobalKey<ScaffoldState>();
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId:
-        '545461705793-3v0101rqbcp0hqkeiqt0ohca9me9d0b3.apps.googleusercontent.com',
-  );
+      clientId: 'YOUR_GOOGLE_CLIENT_ID'); // Replace with your actual client ID
 
   final Rx<UserProfileData?> userProfile = Rx<UserProfileData?>(null);
   final dataTask = const TaskProgressData(totalTask: 5, totalCompleted: 1);
@@ -27,13 +25,15 @@ class DashboardController extends GetxController {
   RxBool isDarkMode = false.obs;
   RxBool isPrintMode = false.obs;
   RxList<StickerConfig> stickers = <StickerConfig>[].obs;
+  RxList<Order> orders = <Order>[].obs;
+  Rx<Order?> currentOrder = Rx<Order?>(null);
+  RxDouble totalOrderPrice = 0.0.obs;
+  RxBool showOrderSummary = false.obs;
+  RxBool isLoading = false.obs;
+  RxInt currentOrderStep = 0.obs;
+  RxString selectedAddress = ''.obs;
   RxString widthErrorText = ''.obs;
   RxString heightErrorText = ''.obs;
-  RxInt currentOrderStep = 0.obs;
-  RxBool showOrderSummary = false.obs;
-  RxDouble totalOrderPrice = 0.0.obs;
-  RxBool isLoading = false.obs;
-  RxString selectedAddress = ''.obs;
   DateTime orderCreatedTime = DateTime.now();
   String orderNumber = '';
 
@@ -41,6 +41,7 @@ class DashboardController extends GetxController {
     debugPrint("DashboardController initialized.");
     _initializeGoogleSignIn();
     _initializeStripe();
+    loadUserOrders(); // Ensure it loads user orders on initialization
   }
 
   Future<void> _initializeGoogleSignIn() async {
@@ -55,6 +56,7 @@ class DashboardController extends GetxController {
           name: account.displayName ?? "User",
           jobDesk: account.email,
         );
+        loadUserOrders(); // Load orders after setting the user
       } else {
         userProfile.value = null;
       }
@@ -65,8 +67,44 @@ class DashboardController extends GetxController {
   void _initializeStripe() {
     if (!kIsWeb) {
       debugPrint("Initializing Stripe...");
+      // Initialize Stripe SDK for non-web platforms if needed
     } else {
       debugPrint("Skipping Stripe initialization on Web platform.");
+    }
+  }
+
+  void downloadImage(Uint8List imageData) {
+    final blob = html.Blob([imageData]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute("download", "image.png")
+      ..click();
+    html.Url.revokeObjectUrl(url);
+  }
+
+  void loadUserOrders() async {
+    if (user.value?.email != null) {
+      final userEmail = user.value!.email;
+      debugPrint("Loading orders for user: $userEmail");
+
+      final url = Uri.parse(
+          'http://localhost:4242/orders?user_email=${Uri.encodeComponent(userEmail)}');
+
+      try {
+        final response = await http.get(url);
+        if (response.statusCode == 200) {
+          final List<dynamic> ordersJson = jsonDecode(response.body);
+          orders.value =
+              ordersJson.map((orderJson) => Order.fromJson(orderJson)).toList();
+          debugPrint("Orders loaded for user: $userEmail");
+        } else {
+          debugPrint("Failed to load orders for user: $userEmail");
+        }
+      } catch (e) {
+        debugPrint("Error loading orders: $e");
+      }
+    } else {
+      debugPrint("User is not logged in. Cannot load orders.");
     }
   }
 
@@ -105,12 +143,14 @@ class DashboardController extends GetxController {
   void addStickerConfig(StickerConfig stickerConfig) {
     stickers.add(stickerConfig);
     calculateTotalPrice();
+    debugPrint("Sticker added: ${stickerConfig.size.value}");
   }
 
   void removeStickerConfig(int index) {
     if (index >= 0 && index < stickers.length) {
       stickers.removeAt(index);
       calculateTotalPrice();
+      debugPrint("Sticker removed at index: $index");
     }
   }
 
@@ -118,6 +158,7 @@ class DashboardController extends GetxController {
     if (index >= 0 && index < stickers.length) {
       stickers[index].confirmed.value = false;
       showOrderSummary.value = false;
+      debugPrint("Editing sticker settings at index: $index");
     }
   }
 
@@ -125,23 +166,29 @@ class DashboardController extends GetxController {
     if (index >= 0 && index < stickers.length) {
       stickers[index].confirmed.value = true;
       calculateTotalPrice();
+      debugPrint("Sticker settings confirmed at index: $index");
     }
   }
 
   void calculateTotalPrice() {
-    double total = 0.0;
-    for (var sticker in stickers) {
-      total += sticker.totalPrice.value;
-    }
-    totalOrderPrice.value = total;
+    totalOrderPrice.value =
+        stickers.fold(0.0, (sum, sticker) => sum + sticker.totalPrice.value);
+    debugPrint("Total price calculated: ${totalOrderPrice.value}");
   }
 
   void proceedToOrderSummary() {
     showOrderSummary.value = true;
     calculateTotalPrice();
+    saveOrder();
   }
 
   Future<void> initiatePayment() async {
+    if (user.value?.email == null) {
+      Get.snackbar(
+          'User not logged in', 'Please sign in to proceed with payment.',
+          snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
     isLoading.value = true;
     debugPrint("Initiating payment...");
 
@@ -154,19 +201,29 @@ class DashboardController extends GetxController {
         };
       }).toList();
 
+      // Prepare stickers data including image data
+      final List<Map<String, Object>> stickersData = stickers.map((sticker) {
+        return {
+          "size": sticker.size.value,
+          "quantity": sticker.quantity.value,
+          "price": sticker.totalPrice.value,
+          "imageData": base64Encode(sticker.imageData.value),
+        };
+      }).toList();
+
       final url = Uri.parse('http://localhost:4242/create-checkout-session');
-      debugPrint("Attempting to post to: $url with data: ${jsonEncode({
-            "items": lineItems,
-            "address": selectedAddress.value,
-          })}");
+      final postData = {
+        "items": lineItems,
+        "address": selectedAddress.value,
+        "userEmail": user.value!.email,
+        "stickers": stickersData,
+      };
+      debugPrint("Posting to: $url with data: ${jsonEncode(postData)}");
 
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode(<String, Object>{
-          "items": lineItems,
-          "address": selectedAddress.value,
-        }),
+        body: jsonEncode(postData),
       );
 
       debugPrint("Response status code: ${response.statusCode}");
@@ -198,8 +255,8 @@ class DashboardController extends GetxController {
   void redirectToCheckout(String sessionId) {
     if (kIsWeb) {
       const String stripePublishableKey = kReleaseMode
-          ? 'pk_live_51Lxm6sEgtx1au46GHhDtjk3JZ04OaA8p7T6xM4lQFLxfbPotRsuT4AhoM4WA0myCsirZeQN32vnUvUSmn1zVyD3m00docojbx7'
-          : 'pk_test_51Lxm6sEgtx1au46GFqvv2vkvZM9eB92E5WBzrG1DPEJOW1w6mPJolzlmnG0qNNRF3hh7WQaZAHhz3lYSQW6Pql4n00eb4DuvxX';
+          ? 'YOUR_LIVE_STRIPE_PUBLISHABLE_KEY'
+          : 'YOUR_TEST_STRIPE_PUBLISHABLE_KEY';
 
       final redirectToCheckoutJs = '''
       var stripe = Stripe('$stripePublishableKey');
@@ -250,6 +307,8 @@ class DashboardController extends GetxController {
             size: '10x10cm',
             quantity: 1,
             confirmed: false,
+            totalPrice:
+                0.7, // Default totalPrice for this size; will be recalculated
           );
           addStickerConfig(stickerConfig);
           debugPrint("Image added to stickers: ${image.path}");
@@ -356,6 +415,12 @@ class DashboardController extends GetxController {
     stickers.clear();
     totalOrderPrice.value = 0.0;
     selectedAddress.value = '';
+    currentOrder.value = null;
+  }
+
+  void saveOrder() {
+    debugPrint("Order saved locally.");
+    // Since we're relying on the server for order storage, this function can be updated if needed.
   }
 }
 
@@ -371,9 +436,10 @@ class StickerConfig extends GetxController {
 
   StickerConfig({
     required Uint8List imageData,
-    String size = '10x10cm',
-    int quantity = 1,
-    bool confirmed = false,
+    required String size,
+    required int quantity,
+    required bool confirmed,
+    required double totalPrice,
     double customWidth = 10.0,
     double customHeight = 10.0,
     bool isExpanded = true,
@@ -384,7 +450,7 @@ class StickerConfig extends GetxController {
         customWidth = customWidth.obs,
         customHeight = customHeight.obs,
         isExpanded = isExpanded.obs,
-        totalPrice = 0.0.obs {
+        totalPrice = totalPrice.obs {
     calculatePrice();
   }
 
@@ -410,18 +476,116 @@ class StickerConfig extends GetxController {
     };
 
     String key = '${customWidth.value.toInt()}x${customHeight.value.toInt()}';
-    double unitPrice;
-
     if (priceTable.containsKey(key)) {
-      unitPrice = priceTable[key]!;
+      totalPrice.value = priceTable[key]! * quantity.value;
     } else {
+      // Calculate price dynamically based on area if size isn't predefined
       double area = customWidth.value * customHeight.value;
-      unitPrice = (area * 0.0035) * 2;
+      double unitPrice = area * 0.0035 * 2; // Example dynamic price per cm²
+      totalPrice.value = unitPrice * quantity.value;
     }
+    debugPrint("Price calculated for sticker: €${totalPrice.value}");
+  }
 
-    totalPrice.value = unitPrice * quantity.value;
+  OrderItem toOrderItem() {
+    return OrderItem(
+      imageData: imageData.value,
+      size: size.value,
+      quantity: quantity.value,
+      price: totalPrice.value,
+    );
+  }
+
+  factory StickerConfig.fromOrderItem(OrderItem item) {
+    return StickerConfig(
+      imageData: item.imageData,
+      size: item.size,
+      quantity: item.quantity,
+      confirmed: true,
+      totalPrice: item.price,
+    );
   }
 }
+
+class Order {
+  final String id;
+  final String userId;
+  final DateTime orderDate;
+  final List<OrderItem> items;
+  double totalPrice;
+  OrderStatus status;
+  bool allowEdit;
+
+  Order({
+    required this.id,
+    required this.userId,
+    required this.orderDate,
+    required this.items,
+    this.totalPrice = 0.0,
+    this.status = OrderStatus.printingStart,
+    this.allowEdit = true,
+  });
+
+  factory Order.fromJson(Map<String, dynamic> json) {
+    return Order(
+      id: json['order_number'],
+      userId: json['user_email'],
+      orderDate: DateTime.parse(json['order_date']),
+      items: (json['items'] as List)
+          .map((itemJson) => OrderItem.fromJson(itemJson))
+          .toList(),
+      totalPrice: (json['total_price'] as num).toDouble() /
+          100, // Convert cents to euros
+      status: OrderStatus.values[json['status']],
+      allowEdit: json['allow_edit'] ?? true,
+    );
+  }
+}
+
+class OrderItem {
+  Uint8List imageData;
+  String size;
+  int quantity;
+  double price;
+
+  OrderItem({
+    required this.imageData,
+    required this.size,
+    required this.quantity,
+    required this.price,
+  });
+
+  factory OrderItem.fromJson(Map<String, dynamic> json) {
+    Uint8List imageData;
+    if (json['imageData'] != null && json['imageData'] != '') {
+      imageData = base64Decode(json['imageData']);
+    } else {
+      imageData = Uint8List(0);
+    }
+    return OrderItem(
+      imageData: imageData,
+      size: json['size'],
+      quantity: json['quantity'],
+      price: (json['price'] as num).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'imageData': base64Encode(imageData),
+      'size': size,
+      'quantity': quantity,
+      'price': price,
+    };
+  }
+
+  // Method to calculate item price
+  double calculatePrice() {
+    return price * quantity;
+  }
+}
+
+enum OrderStatus { payment, printingStart, printingFinish, shippedOut }
 
 class UserProfileData {
   final ImageProvider<Object> image;

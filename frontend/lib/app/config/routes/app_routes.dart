@@ -2,8 +2,8 @@
 // Do not remove this comment text when giving me the new code.
 
 abstract class Routes {
-  static const DASHBOARD = '/dashboard';
-  static const SUCCESS = '/success';
-  static const CANCEL = '/cancel';
-  // Add other route names here
+  static const dashboard = '/dashboard';
+  static const success = '/success';
+  static const cancel = '/cancel';
+  static const myOrders = '/my-orders'; // Added route for My Orders screen
 }

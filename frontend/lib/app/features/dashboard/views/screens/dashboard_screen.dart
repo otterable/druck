@@ -1,6 +1,7 @@
 // My lib/app/features/dashboard/views/screens/dashboard_screen.dart
 // If this file is part of the problem, provide me a full update to the code, without omitting a single part. Include these note lines in the code as well, please. Otherwise do not update.
 
+import 'package:daily_task/app/config/routes/app_routes.dart';
 import 'package:daily_task/app/constans/app_constants.dart';
 import 'package:daily_task/app/shared_components/header_text.dart';
 import 'package:daily_task/app/shared_components/responsive_builder.dart';
@@ -17,11 +18,14 @@ class DashboardScreen extends GetWidget<DashboardController> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint("DashboardScreen: Building main widget");
     return Obx(() {
       final isDarkMode = controller.isDarkMode.value;
       final isPrintMode = controller.isPrintMode.value;
+      debugPrint(
+          "DashboardScreen: DarkMode - $isDarkMode, PrintMode - $isPrintMode");
       return Scaffold(
-        key: controller.scafoldKey,
+        key: controller.scaffoldKey,
         backgroundColor: isDarkMode ? const Color(0xFF111111) : Colors.white,
         drawer: ResponsiveBuilder.isDesktop(context)
             ? null
@@ -35,16 +39,19 @@ class DashboardScreen extends GetWidget<DashboardController> {
         body: SafeArea(
           child: Obx(() {
             if (controller.isLoading.value) {
+              debugPrint("DashboardScreen: Loading data");
               return const Center(child: CircularProgressIndicator());
             } else if (controller.showOrderSummary.value) {
+              debugPrint("DashboardScreen: Showing order summary");
               return _buildOrderSummary();
             } else {
+              debugPrint("DashboardScreen: Building responsive layout");
               return ResponsiveBuilder(
                 mobileBuilder: (context, constraints) {
+                  debugPrint("DashboardScreen: Building mobile layout");
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Hide banner when in print mode
                       if (!isPrintMode) _buildImageBanner(),
                       Expanded(
                         child: isPrintMode
@@ -62,6 +69,7 @@ class DashboardScreen extends GetWidget<DashboardController> {
                   );
                 },
                 tabletBuilder: (context, constraints) {
+                  debugPrint("DashboardScreen: Building tablet layout");
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -69,7 +77,6 @@ class DashboardScreen extends GetWidget<DashboardController> {
                         flex: constraints.maxWidth > 800 ? 8 : 7,
                         child: Column(
                           children: [
-                            // Hide banner when in print mode
                             if (!isPrintMode) _buildImageBanner(),
                             Expanded(
                               child: isPrintMode
@@ -101,6 +108,7 @@ class DashboardScreen extends GetWidget<DashboardController> {
                   );
                 },
                 desktopBuilder: (context, constraints) {
+                  debugPrint("DashboardScreen: Building desktop layout");
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -115,7 +123,6 @@ class DashboardScreen extends GetWidget<DashboardController> {
                         flex: constraints.maxWidth > 1350 ? 10 : 9,
                         child: Column(
                           children: [
-                            // Hide banner when in print mode
                             if (!isPrintMode) _buildImageBanner(),
                             Expanded(
                               child: isPrintMode
@@ -153,7 +160,7 @@ class DashboardScreen extends GetWidget<DashboardController> {
   }
 
   Widget _buildImageBanner() {
-    // Placeholder implementation for _buildImageBanner
+    debugPrint("DashboardScreen: Building image banner");
     return Container(
       height: 200,
       width: double.infinity,
@@ -177,6 +184,7 @@ class DashboardScreen extends GetWidget<DashboardController> {
   }
 
   Widget _buildSidebar(BuildContext context, bool isDarkMode) {
+    debugPrint("DashboardScreen: Building sidebar");
     final DateTime now = DateTime.now();
     final bool isWeekend =
         now.weekday == DateTime.sunday || now.weekday == DateTime.friday;
@@ -215,7 +223,6 @@ class DashboardScreen extends GetWidget<DashboardController> {
           ),
         ),
         const Divider(height: 20, thickness: 1),
-
         // Google Login Button
         Padding(
           padding: const EdgeInsets.all(10),
@@ -224,6 +231,8 @@ class DashboardScreen extends GetWidget<DashboardController> {
               children: [
                 Obx(() {
                   final user = controller.user.value;
+                  debugPrint(
+                      "DashboardScreen: User is ${user != null ? 'logged in' : 'logged out'}");
                   return Text(
                     user != null
                         ? "Logged in as:"
@@ -285,7 +294,6 @@ class DashboardScreen extends GetWidget<DashboardController> {
         ),
 
         const Divider(height: 20, thickness: 1),
-
         // Features Section
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
@@ -319,7 +327,6 @@ class DashboardScreen extends GetWidget<DashboardController> {
         ),
 
         const Divider(height: 20, thickness: 1),
-
         // Print Button and Order Management
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -328,7 +335,10 @@ class DashboardScreen extends GetWidget<DashboardController> {
               ElevatedButton.icon(
                 icon: const Icon(Icons.print),
                 label: const Text("Print"),
-                onPressed: () => controller.togglePrintMode(),
+                onPressed: () {
+                  debugPrint("DashboardScreen: Toggling print mode");
+                  controller.togglePrintMode();
+                },
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 40),
                   padding: const EdgeInsets.all(10),
@@ -341,7 +351,10 @@ class DashboardScreen extends GetWidget<DashboardController> {
               ElevatedButton.icon(
                 icon: const Icon(Icons.shopping_bag),
                 label: const Text("My Orders"),
-                onPressed: () {},
+                onPressed: () {
+                  debugPrint("DashboardScreen: Opening My Orders");
+                  Get.toNamed(Routes.myOrders); // Navigate to MyOrdersScreen
+                },
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 40),
                   padding: const EdgeInsets.all(10),
@@ -355,7 +368,6 @@ class DashboardScreen extends GetWidget<DashboardController> {
         ),
 
         const Divider(height: 20, thickness: 1),
-
         // Printing Time Display
         Padding(
           padding: const EdgeInsets.all(10),
@@ -399,6 +411,7 @@ class DashboardScreen extends GetWidget<DashboardController> {
     required String description,
     required bool isDarkMode,
   }) {
+    debugPrint("DashboardScreen: Building feature item - $title");
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -432,9 +445,10 @@ class DashboardScreen extends GetWidget<DashboardController> {
   }
 
   Widget _buildPrintSection() {
+    debugPrint("DashboardScreen: Building print section");
     return Obx(() {
       if (controller.stickers.isEmpty) {
-        // No stickers: center the upload button and text vertically and horizontally
+        debugPrint("DashboardScreen: No stickers, prompting image upload");
         return Center(
           child: SingleChildScrollView(
             child: Column(
@@ -449,7 +463,10 @@ class DashboardScreen extends GetWidget<DashboardController> {
                 ElevatedButton.icon(
                   icon: const Icon(Icons.upload_file),
                   label: const Text("Upload Images"),
-                  onPressed: () => controller.uploadImages(),
+                  onPressed: () {
+                    debugPrint("DashboardScreen: Uploading images");
+                    controller.uploadImages();
+                  },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.all(16),
                     textStyle: const TextStyle(fontSize: 18),
@@ -460,7 +477,7 @@ class DashboardScreen extends GetWidget<DashboardController> {
           ),
         );
       } else {
-        // There are stickers: show the upload images button and text at the top
+        debugPrint("DashboardScreen: Displaying list of stickers");
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
           child: Column(
@@ -474,7 +491,10 @@ class DashboardScreen extends GetWidget<DashboardController> {
               ElevatedButton.icon(
                 icon: const Icon(Icons.upload_file),
                 label: const Text("Upload Images"),
-                onPressed: () => controller.uploadImages(),
+                onPressed: () {
+                  debugPrint("DashboardScreen: Uploading more images");
+                  controller.uploadImages();
+                },
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.all(16),
                   textStyle: const TextStyle(fontSize: 18),
@@ -486,6 +506,8 @@ class DashboardScreen extends GetWidget<DashboardController> {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: controller.stickers.length,
                 itemBuilder: (context, index) {
+                  debugPrint(
+                      "DashboardScreen: Building sticker config card for index $index");
                   return _buildStickerConfigCard(index);
                 },
               ),
@@ -493,9 +515,15 @@ class DashboardScreen extends GetWidget<DashboardController> {
               Obx(() {
                 final allConfirmed = controller.stickers
                     .every((sticker) => sticker.confirmed.value);
+                debugPrint(
+                    "DashboardScreen: All stickers confirmed: $allConfirmed");
                 return ElevatedButton(
-                  onPressed:
-                      allConfirmed ? controller.proceedToOrderSummary : null,
+                  onPressed: allConfirmed
+                      ? () {
+                          debugPrint("DashboardScreen: Proceeding with order");
+                          controller.proceedToOrderSummary();
+                        }
+                      : null,
                   child: const Text("Proceed with Order"),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.all(16),
@@ -511,6 +539,8 @@ class DashboardScreen extends GetWidget<DashboardController> {
   }
 
   Widget _buildStickerConfigCard(int index) {
+    debugPrint(
+        "DashboardScreen: Building sticker config card for sticker at index $index");
     final sticker = controller.stickers[index];
     final isDarkMode = controller.isDarkMode.value;
     return Obx(() {
@@ -518,7 +548,6 @@ class DashboardScreen extends GetWidget<DashboardController> {
         margin: const EdgeInsets.symmetric(vertical: 10),
         child: Column(
           children: [
-            // Full-size image preview
             Container(
               width: double.infinity,
               constraints: const BoxConstraints(maxHeight: 500),
@@ -535,11 +564,12 @@ class DashboardScreen extends GetWidget<DashboardController> {
                   "Quantity: ${sticker.quantity.value} | Price: €${sticker.totalPrice.toStringAsFixed(2)}"),
               initiallyExpanded: sticker.isExpanded.value,
               onExpansionChanged: (expanded) {
+                debugPrint(
+                    "DashboardScreen: Toggling expansion for sticker $index - Expanded: $expanded");
                 sticker.isExpanded.value = expanded;
               },
               children: [
                 const SizedBox(height: 10),
-                // Hide sections when confirmed
                 if (!sticker.confirmed.value)
                   _buildSizeSelection(sticker, index),
                 if (!sticker.confirmed.value) const SizedBox(height: 10),
@@ -559,18 +589,27 @@ class DashboardScreen extends GetWidget<DashboardController> {
                   alignment: MainAxisAlignment.spaceBetween,
                   children: [
                     TextButton(
-                      onPressed: () => controller.removeStickerConfig(index),
+                      onPressed: () {
+                        debugPrint("DashboardScreen: Removing sticker $index");
+                        controller.removeStickerConfig(index);
+                      },
                       child: const Text("Delete"),
                     ),
                     sticker.confirmed.value
                         ? TextButton(
-                            onPressed: () =>
-                                controller.editStickerSettings(index),
+                            onPressed: () {
+                              debugPrint(
+                                  "DashboardScreen: Editing sticker settings for sticker $index");
+                              controller.editStickerSettings(index);
+                            },
                             child: const Text("Edit"),
                           )
                         : TextButton(
-                            onPressed: () =>
-                                controller.confirmStickerSettings(index),
+                            onPressed: () {
+                              debugPrint(
+                                  "DashboardScreen: Confirming sticker settings for sticker $index");
+                              controller.confirmStickerSettings(index);
+                            },
                             child: const Text("Confirm"),
                           ),
                   ],
@@ -584,6 +623,7 @@ class DashboardScreen extends GetWidget<DashboardController> {
   }
 
   Widget _buildSizeSelection(StickerConfig sticker, int index) {
+    debugPrint("DashboardScreen: Building size selection for sticker $index");
     final isDarkMode = controller.isDarkMode.value;
     final selectedColor = isDarkMode ? Colors.white : Colors.black;
     return Column(
@@ -608,6 +648,8 @@ class DashboardScreen extends GetWidget<DashboardController> {
                       ? null
                       : (selected) {
                           if (selected) {
+                            debugPrint(
+                                "DashboardScreen: Selected size $size for sticker $index");
                             controller.setSelectedFormatForSticker(index, size);
                           }
                         },
@@ -629,6 +671,8 @@ class DashboardScreen extends GetWidget<DashboardController> {
   }
 
   Widget _buildCustomSizeFields(StickerConfig sticker, int index) {
+    debugPrint(
+        "DashboardScreen: Building custom size fields for sticker $index");
     final isDarkMode = controller.isDarkMode.value;
     final textColor = isDarkMode ? Colors.white : Colors.black;
     return Column(
@@ -654,6 +698,8 @@ class DashboardScreen extends GetWidget<DashboardController> {
                         double width =
                             double.tryParse(value.replaceAll(',', '.')) ??
                                 sticker.customWidth.value;
+                        debugPrint(
+                            "DashboardScreen: Setting custom width $width for sticker $index");
                         controller.setCustomDimensionsForSticker(
                             index, width, sticker.customHeight.value);
                       },
@@ -682,6 +728,8 @@ class DashboardScreen extends GetWidget<DashboardController> {
                         double height =
                             double.tryParse(value.replaceAll(',', '.')) ??
                                 sticker.customHeight.value;
+                        debugPrint(
+                            "DashboardScreen: Setting custom height $height for sticker $index");
                         controller.setCustomDimensionsForSticker(
                             index, sticker.customWidth.value, height);
                       },
@@ -703,6 +751,8 @@ class DashboardScreen extends GetWidget<DashboardController> {
   }
 
   Widget _buildQuantitySelection(StickerConfig sticker, int index) {
+    debugPrint(
+        "DashboardScreen: Building quantity selection for sticker $index");
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -718,6 +768,8 @@ class DashboardScreen extends GetWidget<DashboardController> {
             onChanged: (value) {
               int quantity = int.tryParse(value) ?? sticker.quantity.value;
               if (quantity < 1) quantity = 1;
+              debugPrint(
+                  "DashboardScreen: Setting quantity $quantity for sticker $index");
               controller.setQuantityForSticker(index, quantity);
             },
             controller:
@@ -730,6 +782,7 @@ class DashboardScreen extends GetWidget<DashboardController> {
 
   Widget _buildTaskContent(
       {Function()? onPressedMenu, required bool isDarkMode}) {
+    debugPrint("DashboardScreen: Building task content section");
     final textColor = isDarkMode ? Colors.white : Colors.black;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: kSpacing),
@@ -767,6 +820,7 @@ class DashboardScreen extends GetWidget<DashboardController> {
   }
 
   Widget _buildOrderTracking(bool isDarkMode) {
+    debugPrint("DashboardScreen: Building order tracking section");
     final textColor = isDarkMode ? Colors.white : Colors.black;
     final currentStep = controller.currentOrderStep.value;
 
@@ -794,7 +848,6 @@ class DashboardScreen extends GetWidget<DashboardController> {
             ],
           ),
           const SizedBox(height: kSpacing),
-          // Order Steps
           _buildOrderSteps(isDarkMode, currentStep),
         ],
       ),
@@ -802,6 +855,8 @@ class DashboardScreen extends GetWidget<DashboardController> {
   }
 
   Widget _buildOrderSteps(bool isDarkMode, int currentStep) {
+    debugPrint(
+        "DashboardScreen: Building order steps with current step $currentStep");
     final steps = [
       {
         'title': '1. Image upload',
@@ -831,6 +886,8 @@ class DashboardScreen extends GetWidget<DashboardController> {
     return Column(
       children: List.generate(steps.length, (index) {
         final isActive = index <= currentStep;
+        debugPrint(
+            "DashboardScreen: Building order step ${steps[index]['title']} - Active: $isActive");
         return Column(
           children: [
             Row(
@@ -887,6 +944,7 @@ class DashboardScreen extends GetWidget<DashboardController> {
   }
 
   Widget _buildOrderSummary() {
+    debugPrint("DashboardScreen: Building order summary section");
     final isDarkMode = controller.isDarkMode.value;
     final totalPrice = controller.totalOrderPrice.value;
     return Scaffold(
@@ -898,6 +956,8 @@ class DashboardScreen extends GetWidget<DashboardController> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Obx(() {
+          debugPrint(
+              "DashboardScreen: Displaying order summary - Total Price: €${totalPrice.toStringAsFixed(2)}");
           return Column(
             children: [
               Expanded(
@@ -905,6 +965,8 @@ class DashboardScreen extends GetWidget<DashboardController> {
                   itemCount: controller.stickers.length,
                   itemBuilder: (context, index) {
                     final sticker = controller.stickers[index];
+                    debugPrint(
+                        "DashboardScreen: Adding sticker ${index + 1} to order summary - Price: €${sticker.totalPrice.toStringAsFixed(2)}");
                     return Card(
                       child: ListTile(
                         leading: Image.memory(
@@ -920,6 +982,8 @@ class DashboardScreen extends GetWidget<DashboardController> {
                         trailing: IconButton(
                           icon: const Icon(Icons.edit),
                           onPressed: () {
+                            debugPrint(
+                                "DashboardScreen: Editing settings for sticker ${index + 1}");
                             controller.editStickerSettings(index);
                             controller.showOrderSummary.value = false;
                           },
@@ -958,6 +1022,8 @@ class _BottomNavbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint(
+        "_BottomNavbar: Building Bottom Navbar with DarkMode - $isDarkMode");
     return BottomNavigationBar(
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
