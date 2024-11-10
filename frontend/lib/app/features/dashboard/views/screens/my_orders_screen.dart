@@ -1,8 +1,6 @@
 // app/features/dashboard/views/screens/my_orders_screen.dart
 // Do not remove this comment text when giving me the new code.
 
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -76,20 +74,23 @@ class MyOrdersScreen extends GetWidget<DashboardController> {
   Widget _buildOrderItem(BuildContext context, OrderItem item) {
     debugPrint("MyOrdersScreen: Building item view for size ${item.size}");
     return ListTile(
-      leading: item.imageData.isNotEmpty
+      leading: item.imageId.isNotEmpty
           ? GestureDetector(
               onTap: () {
                 showDialog(
                   context: context,
                   builder: (BuildContext context) =>
-                      _buildImagePreviewDialog(item.imageData),
+                      _buildImagePreviewDialog(item.imageId),
                 );
               },
-              child: Image.memory(
-                item.imageData,
+              child: Image.network(
+                'http://localhost:4242/download-image/${item.imageId}',
                 width: 50,
                 height: 50,
                 fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Icon(Icons.image_not_supported);
+                },
               ),
             )
           : const Icon(Icons.image_not_supported),
@@ -133,11 +134,17 @@ class MyOrdersScreen extends GetWidget<DashboardController> {
     );
   }
 
-  Widget _buildImagePreviewDialog(Uint8List imageData) {
+  Widget _buildImagePreviewDialog(String imageId) {
     return Dialog(
       child: Container(
         padding: const EdgeInsets.all(10),
-        child: Image.memory(imageData, fit: BoxFit.contain),
+        child: Image.network(
+          'http://localhost:4242/download-image/$imageId',
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return const Text('Failed to load image');
+          },
+        ),
       ),
     );
   }

@@ -6,4 +6,6 @@ abstract class Routes {
   static const success = '/success';
   static const cancel = '/cancel';
   static const myOrders = '/my-orders'; // Added route for My Orders screen
+  static const orderManagement =
+      '/order-management'; // Added route for Order Management screen
 }

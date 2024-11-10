@@ -363,6 +363,29 @@ class DashboardScreen extends GetWidget<DashboardController> {
                   textStyle: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
+              const SizedBox(height: 10),
+              // Admin Overview Button
+              Obx(() {
+                if (controller.isAdmin.value) {
+                  return ElevatedButton.icon(
+                    icon: const Icon(Icons.admin_panel_settings),
+                    label: const Text("Admin Overview"),
+                    onPressed: () {
+                      debugPrint("DashboardScreen: Opening Admin Overview");
+                      Get.toNamed(Routes.orderManagement);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 40),
+                      padding: const EdgeInsets.all(10),
+                      backgroundColor: isDarkMode ? Colors.white : Colors.black,
+                      foregroundColor: isDarkMode ? Colors.black : Colors.white,
+                      textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  );
+                } else {
+                  return const SizedBox.shrink();
+                }
+              }),
             ],
           ),
         ),
@@ -838,7 +861,7 @@ class DashboardScreen extends GetWidget<DashboardController> {
               IconButton(
                 onPressed: controller.onPressedCalendar,
                 icon: Icon(EvaIcons.calendarOutline, color: textColor),
-                tooltip: "order tracking",
+                tooltip: "Order tracking",
               ),
               Switch(
                 value: controller.isDarkMode.value,

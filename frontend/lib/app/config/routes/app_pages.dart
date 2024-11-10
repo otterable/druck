@@ -2,7 +2,8 @@
 // Do not remove this comment text when giving me the new code.
 
 import 'package:daily_task/app/features/dashboard/views/screens/dashboard_screen.dart';
-import 'package:daily_task/app/features/dashboard/views/screens/my_orders_screen.dart'; // Import MyOrdersScreen
+import 'package:daily_task/app/features/dashboard/views/screens/my_orders_screen.dart';
+import 'package:daily_task/app/features/dashboard/views/screens/order_management_screen.dart'; // Import OrderManagementScreen
 import 'package:daily_task/app/features/payment/pages/cancel_page.dart';
 import 'package:daily_task/app/features/payment/pages/success_page.dart';
 import 'package:flutter/material.dart';
@@ -48,13 +49,24 @@ class AppPages {
       },
     ),
     GetPage(
-      name: Routes.myOrders, // Added route for MyOrdersScreen
+      name: Routes.myOrders,
       page: () {
         print("Navigating to MyOrdersScreen");
         return const MyOrdersScreen();
       },
       binding: BindingsBuilder(() {
         print("Binding DashboardController for MyOrdersScreen");
+        Get.put(DashboardController());
+      }),
+    ),
+    GetPage(
+      name: Routes.orderManagement, // Added route for Order Management Screen
+      page: () {
+        print("Navigating to OrderManagementScreen");
+        return const OrderManagementScreen();
+      },
+      binding: BindingsBuilder(() {
+        print("Binding DashboardController for OrderManagementScreen");
         Get.put(DashboardController());
       }),
     ),

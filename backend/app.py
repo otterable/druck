@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 from datetime import datetime
 import json
 import base64
+import google.auth.transport.requests
+import google.oauth2.id_token
 
 # Load environment variables from a .env file
 load_dotenv()
@@ -34,18 +36,47 @@ IMAGES_DIR = './images'
 if not os.path.exists(IMAGES_DIR):
     os.makedirs(IMAGES_DIR)
 
+# Admin email
+ADMIN_EMAIL = 'novahutskl@gmail.com'
+
+def verify_id_token(id_token):
+    try:
+        request_adapter = google.auth.transport.requests.Request()
+        id_info = google.oauth2.id_token.verify_oauth2_token(
+            id_token, request_adapter, None)
+        return id_info
+    except Exception as e:
+        logging.error("Error verifying ID token: %s", str(e), exc_info=True)
+        return None
+
+def authenticate_request():
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        logging.error("Invalid authorization header.")
+        return None
+
+    id_token = auth_header.split('Bearer ')[1]
+    id_info = verify_id_token(id_token)
+    if id_info:
+        user_email = id_info.get('email')
+        return user_email
+    else:
+        return None
 
 @app.route('/create-checkout-session', methods=['POST'])
 def create_checkout_session():
     try:
-        logging.debug("CONTACT MADE")
+        user_email = authenticate_request()
+        if not user_email:
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        logging.debug("User authenticated: %s", user_email)
 
         data = request.get_json()
         logging.debug("Received data from frontend: %s", data)
 
         items = data['items']
         address = data.get('address', {})
-        user_email = data.get('userEmail', 'unknown_user')
         stickers = data.get('stickers', [])
         order_number = os.urandom(5).hex().upper()  # Generate unique order number
         order_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -103,6 +134,10 @@ def create_checkout_session():
                     f.write(image_data)
                 sticker['image_id'] = image_id
                 logging.debug("Saved image for sticker %s at %s", image_id, image_path)
+                logging.debug(
+                    "Sticker %s details: size=%s, quantity=%s, price=%s",
+                    image_id, sticker.get('size'), sticker.get('quantity'), sticker.get('price')
+                )
                 # Remove 'imageData' to reduce storage size
                 sticker.pop('imageData', None)
             else:
@@ -116,7 +151,7 @@ def create_checkout_session():
             'total_price': total_price_cents,  # Store in cents
             'address': address,
             'items': stickers,  # Store stickers with image IDs
-            'status': 1,  # Default to "printingStart" status
+            'status': 0,  # Default to "payment" status
             'allow_edit': True,
         }
 
@@ -127,37 +162,61 @@ def create_checkout_session():
         logging.error("Error in create_checkout_session: %s", str(e), exc_info=True)
         return jsonify({'error': str(e)}), 400
 
-
 @app.route('/orders', methods=['GET'])
 def get_orders():
-    user_email = request.args.get('user_email')
-    if user_email:
+    user_email = authenticate_request()
+    if not user_email:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    logging.debug("User authenticated: %s", user_email)
+
+    if user_email == ADMIN_EMAIL:
+        # Return all orders for admin
+        logging.debug("All orders retrieved for admin")
+        return jsonify(list(orders_db.values()))
+    else:
         user_orders = [order for order in orders_db.values() if order['user_email'] == user_email]
         logging.debug("Orders retrieved for user: %s", user_email)
         return jsonify(user_orders)
-    else:
-        logging.error("User email not provided for orders retrieval.")
-        return jsonify({'error': 'User email not provided'}), 400
-
 
 @app.route('/order/<order_number>', methods=['GET'])
 def get_order(order_number):
+    user_email = authenticate_request()
+    if not user_email:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    logging.debug("User authenticated: %s", user_email)
+
     order = orders_db.get(order_number)
     if order:
-        logging.debug("Order retrieved for order number: %s", order_number)
-        return jsonify(order)
+        if user_email == ADMIN_EMAIL or order['user_email'] == user_email:
+            logging.debug("Order retrieved for order number: %s", order_number)
+            return jsonify(order)
+        else:
+            return jsonify({'error': 'Forbidden'}), 403
     else:
         logging.error("Order not found for order number: %s", order_number)
         return jsonify({'error': 'Order not found'}), 404
 
-
 @app.route('/download-image/<image_id>', methods=['GET'])
 def download_image(image_id):
     try:
+        user_email = authenticate_request()
+        if not user_email:
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        logging.debug("User authenticated: %s", user_email)
+
         image_path = os.path.join(IMAGES_DIR, f'{image_id}.png')
         if os.path.exists(image_path):
-            logging.debug("Image found for download: %s", image_id)
-            return send_file(image_path, mimetype='image/png')
+            # Check if the user is authorized to access the image
+            order_number = image_id.split('_')[0]
+            order = orders_db.get(order_number)
+            if order and (user_email == ADMIN_EMAIL or order['user_email'] == user_email):
+                logging.debug("Image found for download: %s", image_id)
+                return send_file(image_path, mimetype='image/png')
+            else:
+                return jsonify({'error': 'Forbidden'}), 403
         else:
             logging.error("Image not found for download: %s", image_id)
             return jsonify({'error': 'Image not found'}), 404
@@ -165,10 +224,15 @@ def download_image(image_id):
         logging.error("Error in download_image: %s", str(e), exc_info=True)
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/update-order-status', methods=['POST'])
 def update_order_status():
     try:
+        user_email = authenticate_request()
+        if not user_email or user_email != ADMIN_EMAIL:
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        logging.debug("Admin authenticated: %s", user_email)
+
         data = request.get_json()
         order_number = data['order_number']
         new_status = data['status']
@@ -183,6 +247,37 @@ def update_order_status():
         logging.error("Error in update_order_status: %s", str(e), exc_info=True)
         return jsonify({'error': str(e)}), 500
 
+@app.route('/delete-order', methods=['POST'])
+def delete_order():
+    try:
+        user_email = authenticate_request()
+        if not user_email or user_email != ADMIN_EMAIL:
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        logging.debug("Admin authenticated: %s", user_email)
+
+        data = request.get_json()
+        order_number = data['order_number']
+        if order_number in orders_db:
+            # Delete associated images
+            order = orders_db[order_number]
+            for item in order['items']:
+                image_id = item.get('image_id')
+                if image_id:
+                    image_path = os.path.join(IMAGES_DIR, f'{image_id}.png')
+                    if os.path.exists(image_path):
+                        os.remove(image_path)
+                        logging.debug("Deleted image file: %s", image_path)
+            # Delete the order
+            del orders_db[order_number]
+            logging.debug("Order deleted: %s", order_number)
+            return jsonify({'success': True})
+        else:
+            logging.error("Order not found for deletion: %s", order_number)
+            return jsonify({'error': 'Order not found'}), 404
+    except Exception as e:
+        logging.error("Error in delete_order: %s", str(e), exc_info=True)
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(port=4242)

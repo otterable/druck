@@ -38,16 +38,19 @@ class DashboardController extends GetxController {
   DateTime orderCreatedTime = DateTime.now();
   String orderNumber = '';
 
+  RxBool isAdmin = false.obs; // Indicates if the user is admin
+
+  String? idToken; // Store the Google ID token
+
   DashboardController() {
     debugPrint("DashboardController initialized.");
     _initializeGoogleSignIn();
     _initializeStripe();
-    loadUserOrders(); // Ensure it loads user orders on initialization
   }
 
   Future<void> _initializeGoogleSignIn() async {
     debugPrint("Initializing Google Sign-In...");
-    _googleSignIn.onCurrentUserChanged.listen((account) {
+    _googleSignIn.onCurrentUserChanged.listen((account) async {
       user.value = account;
       if (account != null) {
         userProfile.value = UserProfileData(
@@ -57,12 +60,45 @@ class DashboardController extends GetxController {
           name: account.displayName ?? "User",
           jobDesk: account.email,
         );
-        loadUserOrders(); // Load orders after setting the user
+        // Get the ID token
+        final authentication = await account.authentication;
+        idToken = authentication.idToken;
+        // Fetch admin status from the backend
+        await _checkIfAdmin();
+        await loadUserOrders(); // Load orders after setting the user
       } else {
         userProfile.value = null;
+        isAdmin.value = false;
+        idToken = null;
       }
     });
     await _googleSignIn.signInSilently();
+  }
+
+  Future<void> _checkIfAdmin() async {
+    if (idToken == null) return;
+
+    final url = Uri.parse('http://localhost:4242/check-admin');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          "Authorization": "Bearer $idToken",
+        },
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        isAdmin.value = data['is_admin'] as bool;
+        debugPrint("Admin status: ${isAdmin.value}");
+      } else {
+        isAdmin.value = false;
+        debugPrint(
+            "Failed to fetch admin status. Status code: ${response.statusCode}");
+      }
+    } catch (e) {
+      isAdmin.value = false;
+      debugPrint("Error fetching admin status: $e");
+    }
   }
 
   void _initializeStripe() {
@@ -83,16 +119,20 @@ class DashboardController extends GetxController {
     html.Url.revokeObjectUrl(url);
   }
 
-  void loadUserOrders() async {
-    if (user.value?.email != null) {
+  Future<void> loadUserOrders() async {
+    if (user.value?.email != null && idToken != null) {
       final userEmail = user.value!.email;
       debugPrint("Loading orders for user: $userEmail");
 
-      final url = Uri.parse(
-          'http://localhost:4242/orders?user_email=${Uri.encodeComponent(userEmail)}');
+      Uri url = Uri.parse('http://localhost:4242/orders');
 
       try {
-        final response = await http.get(url);
+        final response = await http.get(
+          url,
+          headers: {
+            "Authorization": "Bearer $idToken",
+          },
+        );
         if (response.statusCode == 200) {
           final List<dynamic> ordersJson = jsonDecode(response.body);
           orders.value =
@@ -105,7 +145,72 @@ class DashboardController extends GetxController {
         debugPrint("Error loading orders: $e");
       }
     } else {
-      debugPrint("User is not logged in. Cannot load orders.");
+      debugPrint(
+          "User is not logged in or ID token is null. Cannot load orders.");
+    }
+  }
+
+  Future<void> updateOrderStatus(Order order, OrderStatus newStatus) async {
+    if (idToken == null) {
+      Get.snackbar('Authentication Error', 'Please sign in again.',
+          snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    final url = Uri.parse('http://localhost:4242/update-order-status');
+    final postData = {
+      'order_number': order.id,
+      'status': newStatus.index,
+    };
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $idToken",
+        },
+        body: jsonEncode(postData),
+      );
+      if (response.statusCode == 200) {
+        order.status = newStatus;
+        orders.refresh(); // Refresh the orders list
+        debugPrint("Order status updated for order ${order.id}");
+      } else {
+        debugPrint(
+            "Failed to update order status. Status code: ${response.statusCode}");
+      }
+    } catch (e) {
+      debugPrint("Error updating order status: $e");
+    }
+  }
+
+  Future<void> deleteOrder(Order order) async {
+    if (idToken == null) {
+      Get.snackbar('Authentication Error', 'Please sign in again.',
+          snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    final url = Uri.parse('http://localhost:4242/delete-order');
+    final postData = {
+      'order_number': order.id,
+    };
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $idToken",
+        },
+        body: jsonEncode(postData),
+      );
+      if (response.statusCode == 200) {
+        orders.remove(order);
+        debugPrint("Order deleted: ${order.id}");
+      } else {
+        debugPrint(
+            "Failed to delete order. Status code: ${response.statusCode}");
+      }
+    } catch (e) {
+      debugPrint("Error deleting order: $e");
     }
   }
 
@@ -125,6 +230,8 @@ class DashboardController extends GetxController {
       await _googleSignIn.disconnect();
       user.value = null;
       userProfile.value = null;
+      isAdmin.value = false;
+      idToken = null;
       debugPrint("Google Sign-Out successful.");
     } catch (error) {
       debugPrint("Google Sign-Out error: $error");
@@ -184,7 +291,7 @@ class DashboardController extends GetxController {
   }
 
   Future<void> initiatePayment() async {
-    if (user.value?.email == null) {
+    if (user.value?.email == null || idToken == null) {
       Get.snackbar(
           'User not logged in', 'Please sign in to proceed with payment.',
           snackPosition: SnackPosition.BOTTOM);
@@ -198,7 +305,8 @@ class DashboardController extends GetxController {
         return {
           "name": "Sticker ${sticker.size.value}",
           "amount": (sticker.totalPrice.value * 100).toInt(),
-          "quantity": sticker.quantity.value,
+          "quantity":
+              1, // Adjusted to 1 since totalPrice already includes quantity
         };
       }).toList();
 
@@ -223,7 +331,10 @@ class DashboardController extends GetxController {
 
       final response = await http.post(
         url,
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $idToken",
+        },
         body: jsonEncode(postData),
       );
 
@@ -308,8 +419,7 @@ class DashboardController extends GetxController {
             size: '10x10cm',
             quantity: 1,
             confirmed: false,
-            totalPrice:
-                0.7, // Default totalPrice for this size; will be recalculated
+            totalPrice: 0.7, // Default totalPrice; will be recalculated
           );
           addStickerConfig(stickerConfig);
           debugPrint("Image added to stickers: ${image.path}");
@@ -487,25 +597,6 @@ class StickerConfig extends GetxController {
     }
     debugPrint("Price calculated for sticker: €${totalPrice.value}");
   }
-
-  OrderItem toOrderItem() {
-    return OrderItem(
-      imageData: imageData.value,
-      size: size.value,
-      quantity: quantity.value,
-      price: totalPrice.value,
-    );
-  }
-
-  factory StickerConfig.fromOrderItem(OrderItem item) {
-    return StickerConfig(
-      imageData: item.imageData,
-      size: item.size,
-      quantity: item.quantity,
-      confirmed: true,
-      totalPrice: item.price,
-    );
-  }
 }
 
 class Order {
@@ -523,7 +614,7 @@ class Order {
     required this.orderDate,
     required this.items,
     this.totalPrice = 0.0,
-    this.status = OrderStatus.printingStart,
+    this.status = OrderStatus.payment,
     this.allowEdit = true,
   });
 
@@ -544,27 +635,21 @@ class Order {
 }
 
 class OrderItem {
-  Uint8List imageData;
+  String imageId; // Image ID field
   String size;
   int quantity;
   double price;
 
   OrderItem({
-    required this.imageData,
+    required this.imageId,
     required this.size,
     required this.quantity,
     required this.price,
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
-    Uint8List imageData;
-    if (json['imageData'] != null && json['imageData'] != '') {
-      imageData = base64Decode(json['imageData']);
-    } else {
-      imageData = Uint8List(0);
-    }
     return OrderItem(
-      imageData: imageData,
+      imageId: json['image_id'] ?? '',
       size: json['size'],
       quantity: json['quantity'],
       price: (json['price'] as num).toDouble(),
@@ -573,16 +658,11 @@ class OrderItem {
 
   Map<String, dynamic> toJson() {
     return {
-      'imageData': base64Encode(imageData),
+      'image_id': imageId,
       'size': size,
       'quantity': quantity,
       'price': price,
     };
-  }
-
-  // Method to calculate item price
-  double calculatePrice() {
-    return price * quantity;
   }
 }
 
